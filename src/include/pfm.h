@@ -4,11 +4,27 @@
 #define PAGE_SIZE 4096
 
 #include <string>
+#include <cstdio>
+#include <iostream>
+#include <fstream>
+#include <sstream>
+#include <vector>
+#include <errno.h>
+#include <cstring>
 
 namespace PeterDB {
 
     typedef unsigned PageNum;
-    typedef int RC;
+//    typedef int RC;
+    enum RC {
+        ok = 0,
+        OPEN_FILE_FAIL = 1,
+        CREA_FILE_FAIL = 2,
+        REMV_FILE_FAIL = 3,
+        CLOS_FILE_FAIL = 4,
+        FD_FAIL =   5,
+        OUT_OF_PAGE =   6,
+    };
 
     class FileHandle;
 
@@ -20,13 +36,17 @@ namespace PeterDB {
         RC destroyFile(const std::string &fileName);                        // Destroy a file
         RC openFile(const std::string &fileName, FileHandle &fileHandle);   // Open a file
         RC closeFile(FileHandle &fileHandle);                               // Close a file
+        int HiddenPage = 1;
 
     protected:
         PagedFileManager();                                                 // Prevent construction
         ~PagedFileManager();                                                // Prevent unwanted destruction
         PagedFileManager(const PagedFileManager &);                         // Prevent construction by copying
         PagedFileManager &operator=(const PagedFileManager &);              // Prevent assignment
+        bool is_file_exist(const char* filename);
 
+    private:
+        std::string FilePath;
     };
 
     class FileHandle {
@@ -35,6 +55,9 @@ namespace PeterDB {
         unsigned readPageCounter;
         unsigned writePageCounter;
         unsigned appendPageCounter;
+
+        FILE *fd;
+        unsigned int HiddenPage;
 
         FileHandle();                                                       // Default constructor
         ~FileHandle();                                                      // Destructor
@@ -45,6 +68,7 @@ namespace PeterDB {
         unsigned getNumberOfPages();                                        // Get the number of pages in the file
         RC collectCounterValues(unsigned &readPageCount, unsigned &writePageCount,
                                 unsigned &appendPageCount);                 // Put current counter values into variables
+
     };
 
 } // namespace PeterDB
