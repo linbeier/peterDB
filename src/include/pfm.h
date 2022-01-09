@@ -36,7 +36,6 @@ namespace PeterDB {
         RC destroyFile(const std::string &fileName);                        // Destroy a file
         RC openFile(const std::string &fileName, FileHandle &fileHandle);   // Open a file
         RC closeFile(FileHandle &fileHandle);                               // Close a file
-        int HiddenPage = 1;
 
     protected:
         PagedFileManager();                                                 // Prevent construction
@@ -47,6 +46,7 @@ namespace PeterDB {
 
     private:
         std::string FilePath;
+        unsigned HiddenPage;
     };
 
     class FileHandle {
@@ -55,9 +55,7 @@ namespace PeterDB {
         unsigned readPageCounter;
         unsigned writePageCounter;
         unsigned appendPageCounter;
-
         FILE *fd;
-        unsigned int HiddenPage;
 
         FileHandle();                                                       // Default constructor
         ~FileHandle();                                                      // Destructor
@@ -68,7 +66,8 @@ namespace PeterDB {
         unsigned getNumberOfPages();                                        // Get the number of pages in the file
         RC collectCounterValues(unsigned &readPageCount, unsigned &writePageCount,
                                 unsigned &appendPageCount);                 // Put current counter values into variables
-
+    private:
+        unsigned HiddenPage;
     };
 
 } // namespace PeterDB

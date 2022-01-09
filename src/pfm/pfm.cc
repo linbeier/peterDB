@@ -20,7 +20,7 @@ namespace PeterDB {
     PagedFileManager &PagedFileManager::operator=(const PagedFileManager &) = default;
 
     RC PagedFileManager::createFile(const std::string &fileName) {
-        std::string filepath = FilePath + fileName;
+        std::string filepath = fileName;
         if(is_file_exist(filepath.c_str())){
             std::cout<<"Info: "<<filepath<<" already exist"<<std::endl;
             return RC::CREA_FILE_FAIL;
@@ -37,7 +37,8 @@ namespace PeterDB {
             memcpy(pagebuffer, &initvalue, sizeof (int));
             memcpy(pagebuffer + sizeof (int), &initvalue, sizeof (int));
             memcpy(pagebuffer + 2*sizeof (int), &initvalue, sizeof (int));
-            size_t result = fwrite(pagebuffer, sizeof (char), PAGE_SIZE, fd);
+            fseek(fd, 0, SEEK_SET);
+            unsigned result = fwrite(pagebuffer, sizeof (char), PAGE_SIZE, fd);
             if(result != PAGE_SIZE) {
                 std::cout << "Error: Fail to write whole page, totally write: " << result << std::endl;
             }
@@ -47,7 +48,7 @@ namespace PeterDB {
     }
 
     RC PagedFileManager::destroyFile(const std::string &fileName) {
-        std::string filepath = FilePath + fileName;
+        std::string filepath = fileName;
         if(!is_file_exist(filepath.c_str())){
             std::cout<<"Info: "<<filepath<<" doesn't exist"<<std::endl;
             return RC::REMV_FILE_FAIL;
@@ -62,12 +63,12 @@ namespace PeterDB {
     }
 
     RC PagedFileManager::openFile(const std::string &fileName, FileHandle &fileHandle) {
-        std::string filepath = FilePath + fileName;
+        std::string filepath = fileName;
         if(!is_file_exist(filepath.c_str())) {
             std::cout<<"Error: Open file "<<filepath<<" doesn't exist"<<std::endl;
             return RC::OPEN_FILE_FAIL;
         }else{
-            FILE *fd = fopen(filepath.c_str(),"a+b");
+            FILE *fd = fopen(filepath.c_str(),"r+b");
             if(fd == nullptr){
                 std::cout<<"Error: Open file "<<filepath<<std::endl;
                 return RC::OPEN_FILE_FAIL;
@@ -101,6 +102,7 @@ namespace PeterDB {
 
             //close file
             fclose(fileHandle.fd);
+            fileHandle.fd = nullptr;
             //todo: deconstruct filehandle
             return RC::ok;
         }
@@ -140,8 +142,8 @@ namespace PeterDB {
             return RC::OUT_OF_PAGE;
         }else{
             char pagebuffer[PAGE_SIZE];
-            fseek(fd, PAGE_SIZE*(pageNum + HiddenPage), SEEK_SET);
             memcpy(pagebuffer, data, PAGE_SIZE);
+            fseek(fd, PAGE_SIZE*(pageNum + HiddenPage), SEEK_SET);
             fwrite(pagebuffer, sizeof (char), PAGE_SIZE, fd);
             writePageCounter++;
             return RC::ok;
@@ -174,8 +176,8 @@ namespace PeterDB {
                 std::cout<<"Error: File len less than 0: "<<strerror(errno)<<std::endl;
                 return 0;
             }
-            size_t pagenum = len/PAGE_SIZE + (len % PAGE_SIZE == 0 ? 0 : 1);
-            return pagenum - HiddenPage;
+            unsigned numpage = (len/PAGE_SIZE) - HiddenPage;
+            return numpage;
         }
     }
 
