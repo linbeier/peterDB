@@ -103,7 +103,7 @@ namespace PeterDB {
             //close file
             fclose(fileHandle.fd);
             fileHandle.fd = nullptr;
-            //todo: deconstruct filehandle
+
             return RC::ok;
         }
     }

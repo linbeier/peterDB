@@ -17,6 +17,7 @@ namespace PeterDB {
     typedef unsigned PageNum;
 //    typedef int RC;
     enum RC {
+        RBFM_EOF = -1,
         ok = 0,
         OPEN_FILE_FAIL = 1,
         CREA_FILE_FAIL = 2,

@@ -2,6 +2,8 @@
 #define _rbfm_h_
 
 #include <vector>
+#include <bitset>
+
 
 #include "pfm.h"
 
@@ -40,8 +42,8 @@ namespace PeterDB {
     /********************************************************************
     * The scan iterator is NOT required to be implemented for Project 1 *
     ********************************************************************/
-
-# define RBFM_EOF (-1)  // end of a scan operator
+    //todo: consider if RBFM_EOF need to redefined
+//# define RBFM_EOF (-1)  // end of a scan operator
 
     //  RBFM_ScanIterator is an iterator to go through records
     //  The way to use it is like the following:
@@ -61,7 +63,7 @@ namespace PeterDB {
         // Never keep the results in the memory. When getNextRecord() is called,
         // a satisfying record needs to be fetched from the file.
         // "data" follows the same format as RecordBasedFileManager::insertRecord().
-        RC getNextRecord(RID &rid, void *data) { return RBFM_EOF; };
+        RC getNextRecord(RID &rid, void *data) { return RC::RBFM_EOF; };
 
         RC close() { return -1; };
     };
@@ -77,6 +79,16 @@ namespace PeterDB {
         RC openFile(const std::string &fileName, FileHandle &fileHandle);   // Open a record-based file
 
         RC closeFile(FileHandle &fileHandle);                               // Close a record-based file
+
+        RC insertNewRecordPage(FileHandle &fileHandle);                        // Insert a new record-based page
+
+        unsigned getFreeSpace(FileHandle &fileHandle, unsigned pageNum);
+
+        unsigned getRecordNum(FileHandle &fileHandle, unsigned pageNum);
+
+        RC constructRecord(const void* data,const std::vector<Attribute> &recordDescriptor, void* record);
+
+        bool checkNull(char *nullbuffer, unsigned num, unsigned totalbytes);
 
         //  Format of the data passed into the function is the following:
         //  [n byte-null-indicators for y fields] [actual value for the first field] [actual value for the second field] ...
