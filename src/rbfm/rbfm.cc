@@ -37,11 +37,61 @@ namespace PeterDB {
     RC RecordBasedFileManager::insertRecord(FileHandle &fileHandle, const std::vector<Attribute> &recordDescriptor,
                                             const void *data, RID &rid) {
 
-        return -1;
+        //construct record
+        char* recordbuf = new char[PAGE_SIZE];
+        unsigned buflen = 0;
+        unsigned result = constructRecord(static_cast<const char *>(data), recordDescriptor, recordbuf, buflen);
+
+        unsigned totalpage = fileHandle.getNumberOfPages();
+        if(totalpage == 0){
+            result = insertNewRecordPage(fileHandle);
+            totalpage++;
+        }
+
+        //check last page
+        char pagebuffer[PAGE_SIZE];
+        fileHandle.readPage(totalpage - 1, pagebuffer);
+        unsigned freespace = getFreeSpace(pagebuffer);
+        if(buflen <= freespace - 4){
+            unsigned short offset = getRecordOffset(pagebuffer);
+            memcpy(pagebuffer + offset, recordbuf, buflen);
+            unsigned slotnum = writeSlotInfo(pagebuffer, offset, buflen);
+            rid.pageNum = totalpage - 1;
+            rid.slotNum = slotnum;
+        }else{
+            unsigned pagenum = 0;
+            bool inserted = false;
+            for(pagenum = 0; pagenum < totalpage - 1; ++pagenum){
+                fileHandle.readPage(pagenum, pagebuffer);
+                freespace = getFreeSpace(pagebuffer);
+                if(buflen <= freespace - 4){
+                    unsigned short offset = getRecordOffset(pagebuffer);
+                    memcpy(pagebuffer + offset, recordbuf, buflen);
+                    unsigned slotnum = writeSlotInfo(pagebuffer, offset, buflen);
+                    inserted = true;
+                    rid.pageNum = pagenum;
+                    rid.slotNum = slotnum;
+                    break;
+                }
+            }
+            if(!inserted){
+                result = insertNewRecordPage(fileHandle);
+                totalpage++;
+                fileHandle.readPage(totalpage - 1, pagebuffer);
+                unsigned short offset = getRecordOffset(pagebuffer);
+                memcpy(pagebuffer + offset, recordbuf, buflen);
+                unsigned slotnum = writeSlotInfo(pagebuffer, offset, buflen);
+                rid.pageNum = pagenum;
+                rid.slotNum = slotnum;
+            }
+        }
+        delete []recordbuf;
+        return RC::ok;
     }
 
     RC RecordBasedFileManager::readRecord(FileHandle &fileHandle, const std::vector<Attribute> &recordDescriptor,
                                           const RID &rid, void *data) {
+
         return -1;
     }
 

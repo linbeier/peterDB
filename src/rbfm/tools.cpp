@@ -14,24 +14,24 @@ namespace PeterDB{
         return fileHandle.appendPage(pagebuffer);
     }
 
-    unsigned RecordBasedFileManager::getFreeSpace(FileHandle &fileHandle, unsigned pageNum){
-        char pagebuffer[PAGE_SIZE];
-        RC rc = fileHandle.readPage(pageNum, pagebuffer);
-        if(rc != RC::ok){
-            return 0;
-        }
+    unsigned RecordBasedFileManager::getFreeSpace(const char*pagebuffer){
+//        char pagebuffer[PAGE_SIZE];
+//        RC rc = fileHandle.readPage(pageNum, pagebuffer);
+//        if(rc != RC::ok){
+//            return 0;
+//        }
         char freespace[2];
         memcpy(freespace, pagebuffer + 4094, 2*sizeof (char));
         std::bitset<16> freespacenum(freespace);
         return (unsigned)freespacenum.to_ulong();
     }
 
-    unsigned RecordBasedFileManager::getRecordNum(FileHandle &fileHandle, unsigned pageNum){
-        char pagebuffer[PAGE_SIZE];
-        RC rc = fileHandle.readPage(pageNum, pagebuffer);
-        if(rc != RC::ok){
-            return 0;
-        }
+    unsigned RecordBasedFileManager::getRecordNum(const char*pagebuffer){
+//        char pagebuffer[PAGE_SIZE];
+//        RC rc = fileHandle.readPage(pageNum, pagebuffer);
+//        if(rc != RC::ok){
+//            return 0;
+//        }
         char recordnumbuf[2];
         memcpy(recordnumbuf, pagebuffer + 4092, 2*sizeof (char));
         std::bitset<16> recordnum(recordnumbuf);
@@ -49,13 +49,44 @@ namespace PeterDB{
         return result;
     }
 
-    RC RecordBasedFileManager::constructRecord(const void* data, const std::vector<Attribute> &recordDescriptor, void* record){
+    unsigned RecordBasedFileManager::getRecordOffset(const char *pagebuffer) {
+        unsigned recordnum = getRecordNum(pagebuffer);
+        char buf[2];
+        memcpy(buf, pagebuffer + PAGE_SIZE - 4*(recordnum + 1), sizeof (short));
+        unsigned short offset = *((short *)buf);
+        memcpy(buf, pagebuffer + PAGE_SIZE - 4*(recordnum + 1) - 2, sizeof (short));
+        unsigned short len = *((short *)buf);
+        return offset + len;
+    }
+
+    unsigned RecordBasedFileManager::writeSlotInfo(char *pagedata, unsigned offset, unsigned len) {
+        char buffer[4];
+        unsigned recordnum = getRecordNum(pagedata);
+        unsigned freespace = getFreeSpace(pagedata);
+
+        recordnum++;
+        freespace -= len;
+
+        memset(buffer, offset, sizeof (short));
+        memset(buffer, len, sizeof (short));
+
+        //write slot
+        memcpy(pagedata + PAGE_SIZE - 4*(recordnum + 1), buffer, 4);
+        //write recordnum and freespace
+        memcpy(pagedata + PAGE_SIZE - 4, &recordnum, 2);
+        memcpy(pagedata + PAGE_SIZE - 2, &freespace, 2);
+
+        return recordnum;
+    }
+
+    //todo: before call this function, allocate mem for recordbuffer.
+    RC RecordBasedFileManager::constructRecord(const char* data, const std::vector<Attribute> &recordDescriptor, char*& recordbuffer, unsigned &len){
 
         unsigned short fieldbyte = recordDescriptor.size()/8 + (recordDescriptor.size()%8 == 0 ? 0: 1);
         char *nullbuffer = new char[fieldbyte];
         unsigned short datapointer = fieldbyte*sizeof (char);
 
-        char *recordbuffer = new char[4000];
+//        char *recordbuffer = new char[4000];
         unsigned short bufpointer = 0;
         unsigned short fieldnum = recordDescriptor.size();
 
@@ -97,6 +128,8 @@ namespace PeterDB{
                 memset(recordbuffer + (i+1)*sizeof (short), bufpointer, sizeof (short));
             }
         }
+        //todo: re-allocate buffer with len?
+        len = bufpointer;
         return RC::ok;
     }
 
