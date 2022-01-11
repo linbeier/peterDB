@@ -25,6 +25,7 @@ namespace PeterDB {
         CLOS_FILE_FAIL = 4,
         FD_FAIL =   5,
         OUT_OF_PAGE =   6,
+        OUT_OF_SLOT =   7,
     };
 
     class FileHandle;

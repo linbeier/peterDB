@@ -39,8 +39,11 @@ namespace PeterDB {
 
         //construct record
         char* recordbuf = new char[PAGE_SIZE];
-        unsigned buflen = 0;
-        unsigned result = constructRecord(static_cast<const char *>(data), recordDescriptor, recordbuf, buflen);
+        unsigned short buflen = 0;
+        unsigned result = constructRecord(recordDescriptor,static_cast<const char *>(data), recordbuf, buflen);
+        if(result != RC::ok){
+
+        }
 
         unsigned totalpage = fileHandle.getNumberOfPages();
         if(totalpage == 0){
@@ -91,35 +94,115 @@ namespace PeterDB {
 
     RC RecordBasedFileManager::readRecord(FileHandle &fileHandle, const std::vector<Attribute> &recordDescriptor,
                                           const RID &rid, void *data) {
+        //fetch page data
+        char* pageData = new char[PAGE_SIZE];
+        unsigned short recordOffset= 0;
+        unsigned short recordLen = 0;
+        char* recordData = new char[PAGE_SIZE];
 
-        return -1;
+        RC result = fileHandle.readPage(rid.pageNum, pageData);
+        if(result != RC::ok){
+            return result;
+        }
+
+        //fetch slot data
+        readSlotInfo(pageData, rid, recordOffset, recordLen);
+        memcpy(recordData, pageData + recordOffset, recordLen );
+
+        //construct record
+        char* datap = static_cast<char *>(data);
+        deconstructRecord(recordDescriptor, recordData, datap);
+
+        delete []pageData;
+        delete []recordData;
+        return RC::ok;
     }
 
     RC RecordBasedFileManager::deleteRecord(FileHandle &fileHandle, const std::vector<Attribute> &recordDescriptor,
                                             const RID &rid) {
-        return -1;
+        return RC::ok;
     }
 
     RC RecordBasedFileManager::printRecord(const std::vector<Attribute> &recordDescriptor, const void *data,
                                            std::ostream &out) {
-        return -1;
+        unsigned short fieldnum = recordDescriptor.size();
+        unsigned short fieldbyte = recordDescriptor.size()/8 + (recordDescriptor.size()%8 == 0 ? 0: 1);
+        unsigned short datapointer = fieldbyte;
+
+        char* nullbuffer = new char[fieldbyte];
+        memcpy(nullbuffer, data, fieldbyte);
+
+        for(int i = 0; i < fieldnum; ++i){
+
+            if(checkNull(nullbuffer, i, fieldnum)){
+
+                if(i != fieldnum - 1) {
+                    out << recordDescriptor[i].name << ":\t" << "NULL" << ",\t";
+                }else{
+                    out << recordDescriptor[i].name << ":\t" << "NULL" << "\n";
+                }
+
+            }else if(recordDescriptor[i].type == AttrType::TypeVarChar){
+
+                char bytelen[4];
+                memcpy(bytelen, (char *)data + datapointer, 4);
+                unsigned int len = *((unsigned int*)bytelen);
+                datapointer += sizeof (int);
+
+                char* value = new char[len];
+                memcpy(value, (char *)data + datapointer, len);
+                datapointer += len;
+                if(i != fieldnum - 1) {
+                    out << recordDescriptor[i].name << ":\t";
+                    out.write(value, len);
+                    out << ",\t";
+                }else{
+                    out << recordDescriptor[i].name << ":\t";
+                    out.write(value, len);
+                    out << "\n";
+                }
+                delete []value;
+
+            }else if(recordDescriptor[i].type == AttrType::TypeInt){
+                char value[4];
+                memcpy(value, (char *)data + datapointer, sizeof (int));
+                datapointer += sizeof (int);
+                int valuenum = *((int *)value);
+                if(i != fieldnum - 1){
+                    out<< recordDescriptor[i].name << ":\t"<<value<<",\t";
+                }else{
+                    out<< recordDescriptor[i].name << ":\t"<<value<<"\n";
+                }
+            }else if(recordDescriptor[i].type == AttrType::TypeReal){
+                char value[4];
+                memcpy(value, (char *)data + datapointer, sizeof (float));
+                datapointer += sizeof (float);
+                float valuenum = *((float *)value);
+                if(i != fieldnum - 1){
+                    out<< recordDescriptor[i].name << ":\t"<<value<<",\t";
+                }else{
+                    out<< recordDescriptor[i].name << ":\t"<<value<<"\n";
+                }
+            }
+        }
+        return RC::ok;
     }
 
     RC RecordBasedFileManager::updateRecord(FileHandle &fileHandle, const std::vector<Attribute> &recordDescriptor,
                                             const void *data, const RID &rid) {
-        return -1;
+        return RC::ok;
     }
 
     RC RecordBasedFileManager::readAttribute(FileHandle &fileHandle, const std::vector<Attribute> &recordDescriptor,
                                              const RID &rid, const std::string &attributeName, void *data) {
-        return -1;
+        return RC::ok;
     }
 
     RC RecordBasedFileManager::scan(FileHandle &fileHandle, const std::vector<Attribute> &recordDescriptor,
                                     const std::string &conditionAttribute, const CompOp compOp, const void *value,
                                     const std::vector<std::string> &attributeNames,
                                     RBFM_ScanIterator &rbfm_ScanIterator) {
-        return -1;
+        return RC::ok;
     }
 
 } // namespace PeterDB

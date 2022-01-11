@@ -7,8 +7,11 @@
 namespace PeterDB{
     RC RecordBasedFileManager::insertNewRecordPage(FileHandle &fileHandle){
         char pagebuffer[PAGE_SIZE];
-        std::bitset<16> freespace(4092);
-        std::bitset<16> recordenum(0);
+        unsigned short free = 4092;
+        unsigned short reco = 0;
+        char* freespace = (char *)&free;
+        char *recordenum = (char *)&reco;
+        //todo: does this directly read work?
         memcpy(pagebuffer + 4092*sizeof (char), &recordenum, 2*sizeof (char));
         memcpy(pagebuffer + 4094*sizeof (char), &freespace, 2*sizeof (char));
         return fileHandle.appendPage(pagebuffer);
@@ -22,8 +25,8 @@ namespace PeterDB{
 //        }
         char freespace[2];
         memcpy(freespace, pagebuffer + 4094, 2*sizeof (char));
-        std::bitset<16> freespacenum(freespace);
-        return (unsigned)freespacenum.to_ulong();
+        unsigned result = *((unsigned *)freespace);
+        return result;
     }
 
     unsigned RecordBasedFileManager::getRecordNum(const char*pagebuffer){
@@ -34,8 +37,8 @@ namespace PeterDB{
 //        }
         char recordnumbuf[2];
         memcpy(recordnumbuf, pagebuffer + 4092, 2*sizeof (char));
-        std::bitset<16> recordnum(recordnumbuf);
-        return (unsigned)recordnum.to_ulong();
+        unsigned result = *((unsigned *)recordnumbuf);
+        return result;
     }
 
     bool RecordBasedFileManager::checkNull(char *nullbuffer, unsigned bitnum, unsigned totalbyte){
@@ -54,7 +57,7 @@ namespace PeterDB{
         char buf[2];
         memcpy(buf, pagebuffer + PAGE_SIZE - 4*(recordnum + 1), sizeof (short));
         unsigned short offset = *((short *)buf);
-        memcpy(buf, pagebuffer + PAGE_SIZE - 4*(recordnum + 1) - 2, sizeof (short));
+        memcpy(buf, pagebuffer + PAGE_SIZE - 4*(recordnum + 1) + 2, sizeof (short));
         unsigned short len = *((short *)buf);
         return offset + len;
     }
@@ -80,7 +83,7 @@ namespace PeterDB{
     }
 
     //todo: before call this function, allocate mem for recordbuffer.
-    RC RecordBasedFileManager::constructRecord(const char* data, const std::vector<Attribute> &recordDescriptor, char*& recordbuffer, unsigned &len){
+    RC RecordBasedFileManager::constructRecord(const std::vector<Attribute> &recordDescriptor, const char* data,  char*& recordbuffer, unsigned short &len){
 
         unsigned short fieldbyte = recordDescriptor.size()/8 + (recordDescriptor.size()%8 == 0 ? 0: 1);
         char *nullbuffer = new char[fieldbyte];
@@ -125,12 +128,65 @@ namespace PeterDB{
                 datapointer += fieldlen;
 
                 //change offset
-                memset(recordbuffer + (i+1)*sizeof (short), bufpointer, sizeof (short));
+                memset(recordbuffer + (i + 1)*sizeof (short), bufpointer, sizeof (short));
             }
         }
         //todo: re-allocate buffer with len?
         len = bufpointer;
+        delete []nullbuffer;
         return RC::ok;
     }
 
+
+    RC RecordBasedFileManager::readSlotInfo(const char *pagedata, const RID &rid, unsigned short &offset,
+                                            unsigned short &len) {
+        char buf[2];
+        if(getRecordNum(pagedata) < rid.slotNum){
+            return RC::OUT_OF_SLOT;
+        }
+        memcpy(buf, pagedata + PAGE_SIZE - 4 * (rid.slotNum + 1), sizeof (short));
+        offset = *((unsigned short*) buf);
+        memcpy(buf, pagedata + PAGE_SIZE - 4 * (rid.slotNum + 1) + 2, sizeof (short));
+        len = *((unsigned short*) buf);
+        return RC::ok;
+    }
+
+    RC RecordBasedFileManager::deconstructRecord(const std::vector<Attribute> &recordDescriptor, const char *data,
+                                                  char *&record) {
+        char buf[2];
+        memcpy(buf, data, sizeof (short));
+        //total field number
+        unsigned short fieldnum = *((unsigned short*) buf);
+        //field num convert to null indicator
+        std::vector<char> nullp(fieldnum / 8 + (fieldnum % 8 == 0 ? 0 : 1));
+        //pointer of current data
+        unsigned short datapointer = (fieldnum + 1) * 2;
+        //pointer of current record
+        unsigned short recordpointer = nullp.size();
+
+        for(int i = 0; i < fieldnum; i++){
+            memcpy(buf, data + (i + 1) * sizeof (short), sizeof (short));
+            unsigned short loffset = *((unsigned short*) buf);
+            if(loffset == 0){
+                //null field
+                nullp[i/8] = nullp[i/8] | (1 << (7 - (i % 8)));
+
+            }else{
+                unsigned short bytelen = datapointer - loffset;
+                if(recordDescriptor[i].type == TypeVarChar){
+                    memcpy(record + recordpointer, &bytelen, sizeof (short));
+                    recordpointer += sizeof (short);
+                }
+                memcpy(record + recordpointer, data + datapointer, bytelen);
+                recordpointer += bytelen;
+                datapointer += bytelen;
+            }
+        }
+
+        for(int i = 0; i < nullp.size(); ++i){
+            memcpy(record + i, &nullp[i], sizeof (char));
+        }
+
+        return RC::ok;
+    }
 }

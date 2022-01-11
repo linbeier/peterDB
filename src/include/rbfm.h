@@ -43,7 +43,7 @@ namespace PeterDB {
     * The scan iterator is NOT required to be implemented for Project 1 *
     ********************************************************************/
     //todo: consider if RBFM_EOF need to redefined
-//# define RBFM_EOF (-1)  // end of a scan operator
+# define RBFM_EOF (-1)  // end of a scan operator
 
     //  RBFM_ScanIterator is an iterator to go through records
     //  The way to use it is like the following:
@@ -63,9 +63,9 @@ namespace PeterDB {
         // Never keep the results in the memory. When getNextRecord() is called,
         // a satisfying record needs to be fetched from the file.
         // "data" follows the same format as RecordBasedFileManager::insertRecord().
-        RC getNextRecord(RID &rid, void *data) { return RC::RBFM_EOF; };
+        RC getNextRecord(RID &rid, void *data) { return static_cast<RC>(RBFM_EOF); };
 
-        RC close() { return -1; };
+        RC close() { return static_cast<RC>(RBFM_EOF); };
     };
 
     class RecordBasedFileManager {
@@ -90,11 +90,15 @@ namespace PeterDB {
 
         unsigned getRecordOffset(const char* data);
 
-        RC constructRecord(const char* data,const std::vector<Attribute> &recordDescriptor, char*& record, unsigned &len);
+        //convert pass in data to on-page record
+        RC constructRecord(const std::vector<Attribute> &recordDescriptor, const char* data, char*& record, unsigned short &len);
 
         unsigned writeSlotInfo(char* pagedata, unsigned offset, unsigned len);
 
+        RC readSlotInfo(const char* pagedata, const RID& rid, unsigned short& offset, unsigned short& len);
 
+        //convert on-page record  to pass in data
+        RC deconstructRecord(const std::vector<Attribute> &recordDescriptor, const char* data, char*& record);
 
         //  Format of the data passed into the function is the following:
         //  [n byte-null-indicators for y fields] [actual value for the first field] [actual value for the second field] ...
