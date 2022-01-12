@@ -82,18 +82,18 @@ namespace PeterDB {
 
         static RC insertNewRecordPage(FileHandle &fileHandle);                        // Insert a new record-based page
 
-        static unsigned getFreeSpace(const char*pagebuffer);
+        static unsigned short getFreeSpace(const char*pagebuffer);
 
-        static unsigned getRecordNum(const char*pagebuffer);
+        static unsigned short getRecordNum(const char*pagebuffer);
 
-        static bool checkNull(char *nullbuffer, unsigned num, unsigned totalbytes);
+        static bool checkNull(char *nullbuffer, unsigned short num, unsigned short totalbytes);
 
-        unsigned getRecordOffset(const char* data);
+        unsigned short getRecordOffset(const char* data);
 
         //convert pass in data to on-page record
         RC constructRecord(const std::vector<Attribute> &recordDescriptor, const char* data, char*& record, unsigned short &len);
 
-        unsigned writeSlotInfo(char* pagedata, unsigned offset, unsigned len);
+        unsigned short writeSlotInfo(char* pagedata, unsigned short offset, unsigned short len);
 
         RC readSlotInfo(const char* pagedata, const RID& rid, unsigned short& offset, unsigned short& len);
 

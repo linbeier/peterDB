@@ -40,12 +40,9 @@ namespace PeterDB {
         //construct record
         char* recordbuf = new char[PAGE_SIZE];
         unsigned short buflen = 0;
-        unsigned result = constructRecord(recordDescriptor,static_cast<const char *>(data), recordbuf, buflen);
-        if(result != RC::ok){
+        unsigned short result = constructRecord(recordDescriptor,static_cast<const char *>(data), recordbuf, buflen);
 
-        }
-
-        unsigned totalpage = fileHandle.getNumberOfPages();
+        unsigned short totalpage = fileHandle.getNumberOfPages();
         if(totalpage == 0){
             result = insertNewRecordPage(fileHandle);
             totalpage++;
@@ -54,13 +51,14 @@ namespace PeterDB {
         //check last page
         char pagebuffer[PAGE_SIZE];
         fileHandle.readPage(totalpage - 1, pagebuffer);
-        unsigned freespace = getFreeSpace(pagebuffer);
+        unsigned short freespace = getFreeSpace(pagebuffer);
         if(buflen <= freespace - 4){
             unsigned short offset = getRecordOffset(pagebuffer);
             memcpy(pagebuffer + offset, recordbuf, buflen);
-            unsigned slotnum = writeSlotInfo(pagebuffer, offset, buflen);
+            unsigned short slotnum = writeSlotInfo(pagebuffer, offset, buflen);
             rid.pageNum = totalpage - 1;
             rid.slotNum = slotnum;
+
         }else{
             unsigned pagenum = 0;
             bool inserted = false;
@@ -70,7 +68,7 @@ namespace PeterDB {
                 if(buflen <= freespace - 4){
                     unsigned short offset = getRecordOffset(pagebuffer);
                     memcpy(pagebuffer + offset, recordbuf, buflen);
-                    unsigned slotnum = writeSlotInfo(pagebuffer, offset, buflen);
+                    unsigned short slotnum = writeSlotInfo(pagebuffer, offset, buflen);
                     inserted = true;
                     rid.pageNum = pagenum;
                     rid.slotNum = slotnum;
@@ -80,14 +78,21 @@ namespace PeterDB {
             if(!inserted){
                 result = insertNewRecordPage(fileHandle);
                 totalpage++;
+                pagenum++;
                 fileHandle.readPage(totalpage - 1, pagebuffer);
                 unsigned short offset = getRecordOffset(pagebuffer);
                 memcpy(pagebuffer + offset, recordbuf, buflen);
-                unsigned slotnum = writeSlotInfo(pagebuffer, offset, buflen);
+                unsigned short slotnum = writeSlotInfo(pagebuffer, offset, buflen);
                 rid.pageNum = pagenum;
                 rid.slotNum = slotnum;
             }
         }
+//
+//        unsigned short testoffset = 0;
+//        unsigned short testlen = 0;
+//        readSlotInfo(pagebuffer, rid, testoffset, testlen);
+
+        fileHandle.writePage(rid.pageNum, pagebuffer);
         delete []recordbuf;
         return RC::ok;
     }
@@ -137,27 +142,27 @@ namespace PeterDB {
             if(checkNull(nullbuffer, i, fieldnum)){
 
                 if(i != fieldnum - 1) {
-                    out << recordDescriptor[i].name << ":\t" << "NULL" << ",\t";
+                    out << recordDescriptor[i].name << ": " << "NULL" << ", ";
                 }else{
-                    out << recordDescriptor[i].name << ":\t" << "NULL" << "\n";
+                    out << recordDescriptor[i].name << ": " << "NULL" << "\n";
                 }
 
             }else if(recordDescriptor[i].type == AttrType::TypeVarChar){
 
                 char bytelen[4];
                 memcpy(bytelen, (char *)data + datapointer, 4);
-                unsigned int len = *((unsigned int*)bytelen);
+                unsigned short len = *((unsigned short*)bytelen);
                 datapointer += sizeof (int);
 
                 char* value = new char[len];
                 memcpy(value, (char *)data + datapointer, len);
                 datapointer += len;
                 if(i != fieldnum - 1) {
-                    out << recordDescriptor[i].name << ":\t";
+                    out << recordDescriptor[i].name << ": ";
                     out.write(value, len);
-                    out << ",\t";
+                    out << ", ";
                 }else{
-                    out << recordDescriptor[i].name << ":\t";
+                    out << recordDescriptor[i].name << ": ";
                     out.write(value, len);
                     out << "\n";
                 }
@@ -169,9 +174,9 @@ namespace PeterDB {
                 datapointer += sizeof (int);
                 int valuenum = *((int *)value);
                 if(i != fieldnum - 1){
-                    out<< recordDescriptor[i].name << ":\t"<<value<<",\t";
+                    out<< recordDescriptor[i].name << ": "<<valuenum<<", ";
                 }else{
-                    out<< recordDescriptor[i].name << ":\t"<<value<<"\n";
+                    out<< recordDescriptor[i].name << ": "<<valuenum<<"\n";
                 }
             }else if(recordDescriptor[i].type == AttrType::TypeReal){
                 char value[4];
@@ -179,12 +184,13 @@ namespace PeterDB {
                 datapointer += sizeof (float);
                 float valuenum = *((float *)value);
                 if(i != fieldnum - 1){
-                    out<< recordDescriptor[i].name << ":\t"<<value<<",\t";
+                    out<< recordDescriptor[i].name << ": "<<valuenum<<", ";
                 }else{
-                    out<< recordDescriptor[i].name << ":\t"<<value<<"\n";
+                    out<< recordDescriptor[i].name << ": "<<valuenum<<"\n";
                 }
             }
         }
+        delete []nullbuffer;
         return RC::ok;
     }
 
