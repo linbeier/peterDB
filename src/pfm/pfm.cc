@@ -20,20 +20,20 @@ namespace PeterDB {
     PagedFileManager &PagedFileManager::operator=(const PagedFileManager &) = default;
 
     RC PagedFileManager::createFile(const std::string &fileName) {
-        std::string filepath = fileName;
-        if(is_file_exist(filepath.c_str())){
-            std::cout<<"Info: "<<filepath<<" already exist"<<std::endl;
+
+        if(is_file_exist(fileName.c_str())){
+//            std::cout<<"Info: "<<filepath<<" already exist"<<std::endl;
             return RC::CREA_FILE_FAIL;
         }else{
-            FILE *fd = fopen(filepath.c_str(),"wb");
+            FILE *fd = fopen(fileName.c_str(),"wb");
             if(fd == nullptr){
-                std::cout<<"Error: Fail to create "<<filepath<<std::endl;
+//                std::cout<<"Error: Fail to create "<<fileName<<std::endl;
                 return RC::CREA_FILE_FAIL;
             }
 
             //create hidden page: data = read, write, append counter
-            char pagebuffer[PAGE_SIZE];
-            memset(pagebuffer, 0, PAGE_SIZE);
+            char *pagebuffer = new char[PAGE_SIZE];
+
             int initvalue = 0;
             memcpy(pagebuffer, &initvalue, sizeof (int));
             memcpy(pagebuffer + sizeof (int), &initvalue, sizeof (int));
@@ -41,22 +41,23 @@ namespace PeterDB {
             fseek(fd, 0, SEEK_SET);
             unsigned result = fwrite(pagebuffer, sizeof (char), PAGE_SIZE, fd);
             if(result != PAGE_SIZE) {
-                std::cout << "Error: Fail to write whole page, totally write: " << result << std::endl;
+//                std::cout << "Error: Fail to write whole page, totally write: " << result << std::endl;
             }
             fclose(fd);
+            delete []pagebuffer;
         }
         return RC::ok;
     }
 
     RC PagedFileManager::destroyFile(const std::string &fileName) {
-        std::string filepath = fileName;
-        if(!is_file_exist(filepath.c_str())){
-            std::cout<<"Info: "<<filepath<<" doesn't exist"<<std::endl;
+
+        if(!is_file_exist(fileName.c_str())){
+//            std::cout<<"Info: "<<fileName<<" doesn't exist"<<std::endl;
             return RC::REMV_FILE_FAIL;
         }else{
-            const int result = remove(filepath.c_str());
+            const int result = remove(fileName.c_str());
             if( result != 0 ){
-                std::cout<<"Error: opening file"<<filepath<<"with error:"<<strerror(errno)<<std::endl; // No such file or directory
+//                std::cout<<"Error: opening file"<<fileName<<"with error:"<<strerror(errno)<<std::endl; // No such file or directory
                 return RC::REMV_FILE_FAIL;
             }
         }
@@ -64,39 +65,44 @@ namespace PeterDB {
     }
 
     RC PagedFileManager::openFile(const std::string &fileName, FileHandle &fileHandle) {
-        std::string filepath = fileName;
-        if(!is_file_exist(filepath.c_str())) {
-            std::cout<<"Error: Open file "<<filepath<<" doesn't exist"<<std::endl;
+
+        if(!is_file_exist(fileName.c_str())) {
+//            std::cout<<"Error: Open file "<<fileName<<" doesn't exist"<<std::endl;
             return RC::OPEN_FILE_FAIL;
         }else{
-            FILE *fd = fopen(filepath.c_str(),"r+b");
+            FILE *fd = fopen(fileName.c_str(),"r+b");
             if(fd == nullptr){
-                std::cout<<"Error: Open file "<<filepath<<std::endl;
+//                std::cout<<"Error: Open file "<<fileName<<std::endl;
                 return RC::OPEN_FILE_FAIL;
             }
+            char *pagebuffer = new char[PAGE_SIZE];
+            fseek(fd, 0, SEEK_SET);
+            fread(pagebuffer, 1, PAGE_SIZE, fd);
             int readcounter = 0, writecounter = 0, appendcounter = 0;
             //maybe just need to init counter and add counter to file when close file?
-            fread(&readcounter, sizeof (int), 1, fd);
-            fread(&writecounter, sizeof (int), 1, fd);
-            fread(&appendcounter, sizeof (int), 1, fd);
+            memcpy(&readcounter, pagebuffer, sizeof (int));
+            memcpy(&writecounter, pagebuffer + sizeof (int), sizeof (int));
+            memcpy(&appendcounter, pagebuffer + 2*sizeof (int), sizeof (int));
 
             fileHandle = FileHandle();
             fileHandle.readPageCounter = (unsigned int)readcounter;
             fileHandle.writePageCounter = (unsigned int)writecounter;
             fileHandle.appendPageCounter = (unsigned int)appendcounter;
             fileHandle.fd = fd;
+
+            delete []pagebuffer;
             return RC::ok;
         }
     }
 
     RC PagedFileManager::closeFile(FileHandle &fileHandle) {
         if(fileHandle.fd == nullptr){
-            std::cout<<"Error: lost file description"<<std::endl;
+//            std::cout<<"Error: lost file description"<<std::endl;
             return RC::FD_FAIL;
         }else{
             //write back hidden block
-            char pagebuffer[PAGE_SIZE];
-            memset(pagebuffer, 0, PAGE_SIZE);
+            char *pagebuffer = new char[PAGE_SIZE];
+
             memcpy(pagebuffer, &fileHandle.readPageCounter, sizeof (int));
             memcpy(pagebuffer + sizeof (int), &fileHandle.writePageCounter, sizeof (int));
             memcpy(pagebuffer + 2*sizeof (int), &fileHandle.appendPageCounter, sizeof (int));
@@ -106,6 +112,7 @@ namespace PeterDB {
             //close file
             fclose(fileHandle.fd);
             fileHandle.fd = nullptr;
+            delete []pagebuffer;
 
             return RC::ok;
         }
@@ -121,17 +128,17 @@ namespace PeterDB {
 
     RC FileHandle::readPage(PageNum pageNum, void *data) {
         if(fd == nullptr){
-            std::cout<< "Error: lost file description"<<std::endl;
+//            std::cout<< "Error: lost file description"<<std::endl;
             return RC::FD_FAIL;
         }else if(getNumberOfPages() <= pageNum){
-            std::cout<<"Error: Pagenum out of range, got"<<pageNum<<"total have: "<<getNumberOfPages()<<std::endl;
+//            std::cout<<"Error: Pagenum out of range, got"<<pageNum<<"total have: "<<getNumberOfPages()<<std::endl;
             return RC::OUT_OF_PAGE;
         }else{
-            char pagebuffer[PAGE_SIZE];
-            memset(pagebuffer, 0, PAGE_SIZE);
+
             fseek(fd, PAGE_SIZE*(pageNum + HiddenPage), SEEK_SET);
-            fread(pagebuffer, sizeof(char), PAGE_SIZE, fd);
-            memcpy(data, pagebuffer, PAGE_SIZE);
+            if(data != nullptr){
+                fread(data, sizeof(char), PAGE_SIZE, fd);
+            }
             readPageCounter++;
             return RC::ok;
         }
@@ -139,17 +146,17 @@ namespace PeterDB {
 
     RC FileHandle::writePage(PageNum pageNum, const void *data) {
         if(fd == nullptr){
-            std::cout<< "Error: lost file description"<<std::endl;
+//            std::cout<< "Error: lost file description"<<std::endl;
             return RC::FD_FAIL;
         }else if(getNumberOfPages() <= pageNum){
-            std::cout<<"Error: Pagenum out of range, got"<<pageNum<<"total have: "<<getNumberOfPages()<<std::endl;
+//            std::cout<<"Error: Pagenum out of range, got"<<pageNum<<"total have: "<<getNumberOfPages()<<std::endl;
             return RC::OUT_OF_PAGE;
         }else{
-            char pagebuffer[PAGE_SIZE];
-            memset(pagebuffer, 0, PAGE_SIZE);
-            memcpy(pagebuffer, data, PAGE_SIZE);
+
             fseek(fd, PAGE_SIZE*(pageNum + HiddenPage), SEEK_SET);
-            fwrite(pagebuffer, sizeof (char), PAGE_SIZE, fd);
+            if(data != nullptr){
+                fwrite(data, sizeof (char), PAGE_SIZE, fd);
+            }
             writePageCounter++;
             return RC::ok;
         }
@@ -157,14 +164,14 @@ namespace PeterDB {
 
     RC FileHandle::appendPage(const void *data) {
         if(fd == nullptr){
-            std::cout<< "Error: lost file description"<<std::endl;
+//            std::cout<< "Error: lost file description"<<std::endl;
             return RC::FD_FAIL;
         }else{
-            char pagebuffer[PAGE_SIZE];
-            memset(pagebuffer, 0, PAGE_SIZE);
+
             fseek(fd, 0, SEEK_END);
-            memcpy(pagebuffer, data, PAGE_SIZE);
-            fwrite(pagebuffer, sizeof (char), PAGE_SIZE, fd);
+            if(data != nullptr){
+                fwrite(data, sizeof (char), PAGE_SIZE, fd);
+            }
             appendPageCounter++;
             return RC::ok;
         }
@@ -173,15 +180,12 @@ namespace PeterDB {
     //not include hidden page
     unsigned FileHandle::getNumberOfPages() {
         if(fd == nullptr){
-            std::cout<< "Error: lost file description"<<std::endl;
+//            std::cout<< "Error: lost file description"<<std::endl;
             return 0;
         }else{
             fseek(fd, 0L, SEEK_END);
             long len = ftell(fd);
-            if(len < 0){
-                std::cout<<"Error: File len less than 0: "<<strerror(errno)<<std::endl;
-                return 0;
-            }
+
             unsigned numpage = (len/PAGE_SIZE) - HiddenPage;
             return numpage;
         }
