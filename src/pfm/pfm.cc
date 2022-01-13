@@ -33,6 +33,7 @@ namespace PeterDB {
 
             //create hidden page: data = read, write, append counter
             char pagebuffer[PAGE_SIZE];
+            memset(pagebuffer, 0, PAGE_SIZE);
             int initvalue = 0;
             memcpy(pagebuffer, &initvalue, sizeof (int));
             memcpy(pagebuffer + sizeof (int), &initvalue, sizeof (int));
@@ -74,6 +75,7 @@ namespace PeterDB {
                 return RC::OPEN_FILE_FAIL;
             }
             int readcounter = 0, writecounter = 0, appendcounter = 0;
+            //maybe just need to init counter and add counter to file when close file?
             fread(&readcounter, sizeof (int), 1, fd);
             fread(&writecounter, sizeof (int), 1, fd);
             fread(&appendcounter, sizeof (int), 1, fd);
@@ -94,6 +96,7 @@ namespace PeterDB {
         }else{
             //write back hidden block
             char pagebuffer[PAGE_SIZE];
+            memset(pagebuffer, 0, PAGE_SIZE);
             memcpy(pagebuffer, &fileHandle.readPageCounter, sizeof (int));
             memcpy(pagebuffer + sizeof (int), &fileHandle.writePageCounter, sizeof (int));
             memcpy(pagebuffer + 2*sizeof (int), &fileHandle.appendPageCounter, sizeof (int));
@@ -125,6 +128,7 @@ namespace PeterDB {
             return RC::OUT_OF_PAGE;
         }else{
             char pagebuffer[PAGE_SIZE];
+            memset(pagebuffer, 0, PAGE_SIZE);
             fseek(fd, PAGE_SIZE*(pageNum + HiddenPage), SEEK_SET);
             fread(pagebuffer, sizeof(char), PAGE_SIZE, fd);
             memcpy(data, pagebuffer, PAGE_SIZE);
@@ -142,6 +146,7 @@ namespace PeterDB {
             return RC::OUT_OF_PAGE;
         }else{
             char pagebuffer[PAGE_SIZE];
+            memset(pagebuffer, 0, PAGE_SIZE);
             memcpy(pagebuffer, data, PAGE_SIZE);
             fseek(fd, PAGE_SIZE*(pageNum + HiddenPage), SEEK_SET);
             fwrite(pagebuffer, sizeof (char), PAGE_SIZE, fd);
@@ -156,6 +161,7 @@ namespace PeterDB {
             return RC::FD_FAIL;
         }else{
             char pagebuffer[PAGE_SIZE];
+            memset(pagebuffer, 0, PAGE_SIZE);
             fseek(fd, 0, SEEK_END);
             memcpy(pagebuffer, data, PAGE_SIZE);
             fwrite(pagebuffer, sizeof (char), PAGE_SIZE, fd);

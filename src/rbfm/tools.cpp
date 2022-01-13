@@ -7,6 +7,7 @@
 namespace PeterDB{
     RC RecordBasedFileManager::insertNewRecordPage(FileHandle &fileHandle){
         char pagebuffer[PAGE_SIZE];
+        memset(pagebuffer, 0, PAGE_SIZE);
         unsigned short free = 4092;
         unsigned short reco = 0;
 
