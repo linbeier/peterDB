@@ -49,7 +49,7 @@ namespace PeterDB{
 //        }
         char buf;
         memcpy(&buf, nullbuffer + bitnum/8, sizeof (char));
-        bool result = (buf >> (7 - (bitnum % 8))) & 1;
+        bool result = buf & (char)(1 << (7 - (bitnum % 8)));
         return result;
     }
 
@@ -98,11 +98,6 @@ namespace PeterDB{
         memcpy(nullbuffer, data, nullibyte*sizeof (char));
 
         memcpy(recordbuffer, &fieldnum, sizeof(short));
-//        unsigned short testnum = 0;
-//        char testbuf[2];
-//        memcpy(&testbuf, recordbuffer, sizeof (short));
-//        testnum = *((unsigned short*)testbuf);
-
         bufpointer += (fieldnum + 1)*sizeof (short);
 
         for(int i = 0; i < recordDescriptor.size(); ++i){
