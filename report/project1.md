@@ -15,14 +15,15 @@
 
   | Field number | offset | offset | data | data |
   |--------------|--------|--------|------|------|
-  | 2 byte       | 2 byte | 2 byte |      |      |
-    Start with a field number, it indicates the number of fields in a record. Since one record can not larger than PAGE_SIZE, so 2 bytes are enough to store field number.  
-    Then, the offset field stores the offset of the end of corresponding data. Total number of offset will be the value of field number.  
-    Data is followed by the end of all offset fields.
+  | 2 byte       | 2 byte | 2 byte |      |      |  
+  
+  Start with a field number, it indicates the number of fields in a record. Since one record can not larger than PAGE_SIZE, so 2 bytes are enough to store field number.  
+  Then, the offset field stores the offset of the end of corresponding data. Total number of offset will be the value of field number.  
+  Data is followed by the end of all offset fields.
 
 
 - Describe how you store a null field.  
-    when occur to null field, the offset of corresponding field will be set to 0. Since it is not possible to have a data ended at offset 0, offset 0 can be used as null value in offset field.  
+  when occur to null field, the offset of corresponding field will be set to 0. Since it is not possible to have a data ended at offset 0, offset 0 can be used as null value in offset field.  
 
 
 
@@ -48,7 +49,8 @@ For pages in a file, pages grows from the beginning of file to the end and every
 
   | record offset | record len | record offset | record len | Record Num | Free Space |
   |---------------|------------|---------------|------------|------------|------------|  
-  | 2 byte        | 2 byte     | 2 byte        | 2 byte     | 2 byte     | 2 byte     |
+  | 2 byte        | 2 byte     | 2 byte        | 2 byte     | 2 byte     | 2 byte     |  
+  
   Slot directory grows from the end of a page, from the end of a page, there are free space, record number and all record slots(offset and len). Every number takes 2 bytes.  
 
 
