@@ -106,8 +106,11 @@ namespace PeterDBTesting {
         std::string::size_type val_end;
 
         while ((key_end = keyValuePairsStr.find(':', key_pos)) != std::string::npos) {
-            if ((val_pos = keyValuePairsStr.find_first_not_of(": ", key_end)) == std::string::npos)
+            if ((val_pos = keyValuePairsStr.find_first_not_of(": ", key_end)) == std::string::npos) {
+                // Handle the case of empty string
+                outMap.emplace(trim_copy(keyValuePairsStr.substr(key_pos, key_end - key_pos)), std::string());
                 break;
+            }
 
             val_end = keyValuePairsStr.find(',', val_pos);
             outMap.emplace(trim_copy(keyValuePairsStr.substr(key_pos, key_end - key_pos)),
