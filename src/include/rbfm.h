@@ -80,26 +80,6 @@ namespace PeterDB {
 
         RC closeFile(FileHandle &fileHandle);                               // Close a record-based file
 
-        static RC insertNewRecordPage(FileHandle &fileHandle);                        // Insert a new record-based page
-
-        static unsigned short getFreeSpace(const char*pagebuffer);
-
-        static unsigned short getRecordNum(const char*pagebuffer);
-
-        static bool checkNull(char *nullbuffer, unsigned short num, unsigned short totalbytes);
-
-        unsigned short getRecordOffset(const char* data);
-
-        //convert pass in data to on-page record
-        RC constructRecord(const std::vector<Attribute> &recordDescriptor, const char* data, char*& record, unsigned short &len);
-
-        unsigned short writeSlotInfo(char* pagedata, unsigned short offset, unsigned short len);
-
-        RC readSlotInfo(const char* pagedata, const RID& rid, unsigned short& offset, unsigned short& len);
-
-        //convert on-page record  to pass in data
-        RC deconstructRecord(const std::vector<Attribute> &recordDescriptor, const char* data, char*& record);
-
         //  Format of the data passed into the function is the following:
         //  [n byte-null-indicators for y fields] [actual value for the first field] [actual value for the second field] ...
         //  1) For y fields, there is n-byte-null-indicators in the beginning of each record.
@@ -154,6 +134,36 @@ namespace PeterDB {
                 const void *value,                    // used in the comparison
                 const std::vector<std::string> &attributeNames, // a list of projected attributes
                 RBFM_ScanIterator &rbfm_ScanIterator);
+
+
+        // tool functions
+        static RC insertNewRecordPage(FileHandle &fileHandle);                        // Insert a new record-based page
+
+        static unsigned short getFreeSpace(const char*pageBuffer);
+
+        static unsigned short getRecordNum(const char*pageBuffer);
+
+        static bool checkNull(char *nullbuffer, unsigned short num, unsigned short totalbytes);
+
+        unsigned short getRecordOffset(const char* data);
+
+        //convert pass in data to on-page record
+        RC constructRecord(const std::vector<Attribute> &recordDescriptor, const char* data, char*& record, unsigned short &len);
+
+        unsigned short writeSlotInfo(char* pageData, unsigned short offset, unsigned short len);
+
+        RC readSlotInfo(const char* pageData, const RID& rid, unsigned short& offset, unsigned short& len);
+
+        RC updateSlotInfo(const char* pageData, const RID& rid, unsigned short& offset, unsigned short& len);
+
+        //convert on-page record  to pass in data
+        RC deconstructRecord(const std::vector<Attribute> &recordDescriptor, const char* data, char*& record);
+
+        RC markDeleteRecord(char* pageData, const RID& rid);
+
+        bool checkRecordtoMove(const char* pageData, const RID& rid);
+
+        bool checkRecordDeleted(const char* pageData, const RID& rid);
 
     protected:
         RecordBasedFileManager();                                                   // Prevent construction

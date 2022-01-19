@@ -41,6 +41,10 @@ namespace PeterDB {
         char* recordbuf = new char[PAGE_SIZE];
         unsigned short buflen = 0;
         unsigned short result = constructRecord(recordDescriptor,static_cast<const char *>(data), recordbuf, buflen);
+        if(result > 4094){
+            delete []recordbuf;
+            return RC::RECORD_TOO_BIG;
+        }
 
         unsigned short totalpage = fileHandle.getNumberOfPages();
         if(totalpage == 0){
@@ -87,10 +91,6 @@ namespace PeterDB {
                 rid.slotNum = slotnum;
             }
         }
-//
-//        unsigned short testoffset = 0;
-//        unsigned short testlen = 0;
-//        readSlotInfo(pagebuffer, rid, testoffset, testlen);
 
         fileHandle.writePage(rid.pageNum, pagebuffer);
         delete []recordbuf;
@@ -107,7 +107,14 @@ namespace PeterDB {
 
         RC result = fileHandle.readPage(rid.pageNum, pageData);
         if(result != RC::ok){
+            delete []pageData;
+            delete []recordData;
             return result;
+        }
+        if(checkRecordDeleted(pageData, rid)){
+            delete []pageData;
+            delete []recordData;
+            return RC::RECORD_HAS_DEL;
         }
 
         //fetch slot data
@@ -125,6 +132,51 @@ namespace PeterDB {
 
     RC RecordBasedFileManager::deleteRecord(FileHandle &fileHandle, const std::vector<Attribute> &recordDescriptor,
                                             const RID &rid) {
+        char* pageData = new char[PAGE_SIZE];
+        fileHandle.readPage(rid.pageNum, pageData);
+        unsigned recordNum = getRecordNum(pageData);
+
+        //first check if it has been deleted
+        if(checkRecordDeleted(pageData, rid)){
+            delete []pageData;
+            return RC::RECORD_HAS_DEL;
+        }
+
+        //Figure out where and length to move
+        unsigned short recordOffset = 0, recordLen = 0;
+        unsigned short moveOffset = 0, moveLen = 0;
+        readSlotInfo(pageData, rid, recordOffset, recordLen);
+        moveOffset = recordOffset + recordLen;
+
+        //no records after current record
+        if( !checkRecordtoMove(pageData, rid) ){
+            markDeleteRecord(pageData, rid);
+            fileHandle.writePage(rid.pageNum, pageData);
+
+            delete []pageData;
+            return RC::ok;
+        }
+
+        for(unsigned short i = rid.slotNum + 1; i <= recordNum; ++i){
+            RID r = {rid.pageNum, i};
+
+            if( !checkRecordDeleted(pageData, r) ){
+                unsigned short offset = 0, len = 0;
+                readSlotInfo(pageData, r, offset, len);
+                offset -= recordLen;
+                moveLen += len;
+                updateSlotInfo(pageData, r, offset, len);
+
+            }else{
+                continue;
+            }
+        }
+
+        markDeleteRecord(pageData, rid);
+        memcpy(pageData + recordOffset, pageData + moveOffset, moveLen);
+        fileHandle.writePage(rid.pageNum, pageData);
+
+        delete []pageData;
         return RC::ok;
     }
 

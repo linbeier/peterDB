@@ -9,7 +9,6 @@
 #include <fstream>
 #include <sstream>
 #include <vector>
-#include <errno.h>
 #include <cstring>
 
 namespace PeterDB {
@@ -26,6 +25,8 @@ namespace PeterDB {
         FD_FAIL =   5,
         OUT_OF_PAGE =   6,
         OOUT_SLOT = 7,
+        RECORD_TOO_BIG = 8,
+        RECORD_HAS_DEL = 9,
     };
 
     class FileHandle;

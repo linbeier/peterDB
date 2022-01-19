@@ -5,6 +5,7 @@
 #include "src/include/rbfm.h"
 
 namespace PeterDB{
+
     RC RecordBasedFileManager::insertNewRecordPage(FileHandle &fileHandle){
         char pagebuffer[PAGE_SIZE];
         memset(pagebuffer, 0, PAGE_SIZE);
@@ -18,11 +19,6 @@ namespace PeterDB{
     }
 
     unsigned short RecordBasedFileManager::getFreeSpace(const char*pagebuffer){
-//        char pagebuffer[PAGE_SIZE];
-//        RC rc = fileHandle.readPage(pageNum, pagebuffer);
-//        if(rc != RC::ok){
-//            return 0;
-//        }
         char freespace[2];
         memcpy(freespace, pagebuffer + 4094, 2*sizeof (char));
         unsigned short result = *((unsigned short*)freespace);
@@ -30,11 +26,6 @@ namespace PeterDB{
     }
 
     unsigned short RecordBasedFileManager::getRecordNum(const char*pagebuffer){
-//        char pagebuffer[PAGE_SIZE];
-//        RC rc = fileHandle.readPage(pageNum, pagebuffer);
-//        if(rc != RC::ok){
-//            return 0;
-//        }
         char recordnumbuf[2];
         memcpy(recordnumbuf, pagebuffer + 4092, 2*sizeof (char));
         unsigned short result = *((unsigned short*)recordnumbuf);
@@ -43,10 +34,7 @@ namespace PeterDB{
 
     //bitnum start from 0
     bool RecordBasedFileManager::checkNull(char *nullbuffer, unsigned short bitnum, unsigned short totalbit){
-//        if(bitnum >= totalbit){
-//            std::cout<<"Error: bitnum bigger than total bits"<<std::endl;
-//            return false;
-//        }
+
         char buf;
         memcpy(&buf, nullbuffer + bitnum/8, sizeof (char));
         bool result = buf & (char)(1 << (7 - (bitnum % 8)));
@@ -65,24 +53,60 @@ namespace PeterDB{
         return offset + len;
     }
 
-    unsigned short RecordBasedFileManager::writeSlotInfo(char *pagedata, unsigned short offset, unsigned short len) {
+    //append slot info, slot number start from 1
+    unsigned short RecordBasedFileManager::writeSlotInfo(char *pageData, unsigned short offset, unsigned short len) {
         char buffer[4];
-        unsigned short recordnum = getRecordNum(pagedata);
-        unsigned short freespace = getFreeSpace(pagedata);
-
-        recordnum++;
-        freespace -= len + 4;
+        unsigned short recordNum = getRecordNum(pageData);
+        unsigned short freeSpace = getFreeSpace(pageData);
+        unsigned short slotNum = 1;
+        for(slotNum = 1; slotNum <= recordNum; slotNum++){
+            //temporally construct rid, pageNum is not used
+            RID r{0,slotNum};
+            if(checkRecordDeleted(pageData, r)){
+                break;
+            }
+        }
+        recordNum++;
+        if(slotNum == recordNum)freeSpace -= len + 4;
+        else freeSpace -= len;
 
         memcpy(buffer, &offset, sizeof (short));
         memcpy(buffer + 2, &len, sizeof (short));
 
         //write slot
-        memcpy(pagedata + PAGE_SIZE - 4*(recordnum + 1), buffer, 4);
+        memcpy(pageData + PAGE_SIZE - 4 * (slotNum + 1), buffer, 4);
         //write recordnum and freespace
-        memcpy(pagedata + PAGE_SIZE - 4, &recordnum, 2);
-        memcpy(pagedata + PAGE_SIZE - 2, &freespace, 2);
+        memcpy(pageData + PAGE_SIZE - 4, &recordNum, 2);
+        memcpy(pageData + PAGE_SIZE - 2, &freeSpace, 2);
 
-        return recordnum;
+        return slotNum;
+    }
+
+
+    RC RecordBasedFileManager::readSlotInfo(const char *pageData, const RID &rid, unsigned short &offset,
+                                            unsigned short &len) {
+        char buf[2];
+        if(getRecordNum(pageData) < rid.slotNum){
+            return RC::OOUT_SLOT;
+        }
+        memcpy(buf, pageData + PAGE_SIZE - 4 * (rid.slotNum + 1), sizeof (short));
+        offset = *((unsigned short*) buf);
+        memcpy(buf, pageData + PAGE_SIZE - 4 * (rid.slotNum + 1) + 2, sizeof (short));
+        len = *((unsigned short*) buf);
+        return RC::ok;
+    }
+
+    RC RecordBasedFileManager::updateSlotInfo(const char *pageData, const RID &rid, unsigned short &offset,
+                                              unsigned short &len) {
+
+        if(getRecordNum(pageData) < rid.slotNum){
+            return RC::OOUT_SLOT;
+        }
+        memcpy((void *) (pageData + PAGE_SIZE - 4 * (rid.slotNum + 1)), (void *)&offset, sizeof (short));
+
+        memcpy((void *) (pageData + PAGE_SIZE - 4 * (rid.slotNum + 1) + 2), (void *)&len, sizeof (short));
+
+        return RC::ok;
     }
 
     //todo: before call this function, allocate mem for recordbuffer.
@@ -141,19 +165,6 @@ namespace PeterDB{
     }
 
 
-    RC RecordBasedFileManager::readSlotInfo(const char *pagedata, const RID &rid, unsigned short &offset,
-                                            unsigned short &len) {
-        char buf[2];
-        if(getRecordNum(pagedata) < rid.slotNum){
-            return RC::OOUT_SLOT;
-        }
-        memcpy(buf, pagedata + PAGE_SIZE - 4 * (rid.slotNum + 1), sizeof (short));
-        offset = *((unsigned short*) buf);
-        memcpy(buf, pagedata + PAGE_SIZE - 4 * (rid.slotNum + 1) + 2, sizeof (short));
-        len = *((unsigned short*) buf);
-        return RC::ok;
-    }
-
     RC RecordBasedFileManager::deconstructRecord(const std::vector<Attribute> &recordDescriptor, const char *data,
                                                   char *&record) {
         char buf[2];
@@ -191,5 +202,46 @@ namespace PeterDB{
         }
 
         return RC::ok;
+    }
+
+    RC RecordBasedFileManager::markDeleteRecord(char *pageData, const RID &rid) {
+
+        unsigned short offset = 0, len = 0;
+        readSlotInfo(pageData, rid, offset, len);
+        unsigned short coffset = PAGE_SIZE + 1, clen = PAGE_SIZE + 1;
+        updateSlotInfo(pageData, rid, coffset, clen);
+
+        unsigned short recordNum = getRecordNum(pageData);
+        unsigned short freeSpace = getFreeSpace(pageData);
+
+        recordNum--;
+        freeSpace += len;
+
+        //write recordnum and freespace
+        memcpy(pageData + PAGE_SIZE - 4, &recordNum, 2);
+        memcpy(pageData + PAGE_SIZE - 2, &freeSpace, 2);
+
+        return RC::ok;
+    }
+
+    bool RecordBasedFileManager::checkRecordDeleted(const char *pageData, const RID& rid) {
+        unsigned short offset = 0, len = 0;
+        readSlotInfo(pageData, rid, offset, len);
+        if(offset > PAGE_SIZE){
+            return true;
+        }
+        return false;
+    }
+
+    //return whether there are record followed, 0 is no, 1 is yes.
+    bool RecordBasedFileManager::checkRecordtoMove(const char *pageData, const RID &rid) {
+
+        unsigned short recordNum = getRecordNum(pageData);
+
+        if(rid.slotNum >= recordNum){
+            return false;
+        }else{
+            return true;
+        }
     }
 }
