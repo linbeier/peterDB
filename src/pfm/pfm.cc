@@ -32,7 +32,7 @@ namespace PeterDB {
             }
 
             //create hidden page: data = read, write, append counter
-            char *pagebuffer = new char[PAGE_SIZE];
+            char pagebuffer[PAGE_SIZE];
 
             int initvalue = 0;
             memcpy(pagebuffer, &initvalue, sizeof (int));
@@ -44,7 +44,7 @@ namespace PeterDB {
 //                std::cout << "Error: Fail to write whole page, totally write: " << result << std::endl;
             }
             fclose(fd);
-            delete []pagebuffer;
+//            delete []pagebuffer;
         }
         return RC::ok;
     }
@@ -75,7 +75,7 @@ namespace PeterDB {
 //                std::cout<<"Error: Open file "<<fileName<<std::endl;
                 return RC::OPEN_FILE_FAIL;
             }
-            char *pagebuffer = new char[PAGE_SIZE];
+            char pagebuffer[PAGE_SIZE];
             fseek(fd, 0, SEEK_SET);
             fread(pagebuffer, 1, PAGE_SIZE, fd);
             int readcounter = 0, writecounter = 0, appendcounter = 0;
@@ -85,12 +85,12 @@ namespace PeterDB {
             memcpy(&appendcounter, pagebuffer + 2*sizeof (int), sizeof (int));
 
             fileHandle = FileHandle();
-            fileHandle.readPageCounter = (unsigned int)readcounter;
+            fileHandle.readPageCounter = (unsigned int)readcounter + 1;
             fileHandle.writePageCounter = (unsigned int)writecounter;
             fileHandle.appendPageCounter = (unsigned int)appendcounter;
             fileHandle.fd = fd;
 
-            delete []pagebuffer;
+//            delete []pagebuffer;
             return RC::ok;
         }
     }
@@ -101,7 +101,7 @@ namespace PeterDB {
             return RC::FD_FAIL;
         }else{
             //write back hidden block
-            char *pagebuffer = new char[PAGE_SIZE];
+            char pagebuffer[PAGE_SIZE];
 
             memcpy(pagebuffer, &fileHandle.readPageCounter, sizeof (int));
             memcpy(pagebuffer + sizeof (int), &fileHandle.writePageCounter, sizeof (int));
@@ -112,7 +112,7 @@ namespace PeterDB {
             //close file
             fclose(fileHandle.fd);
             fileHandle.fd = nullptr;
-            delete []pagebuffer;
+//            delete []pagebuffer;
 
             return RC::ok;
         }
