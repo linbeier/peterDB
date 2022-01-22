@@ -139,31 +139,39 @@ namespace PeterDB {
         // tool functions
         static RC insertNewRecordPage(FileHandle &fileHandle);                        // Insert a new record-based page
 
-        static unsigned short getFreeSpace(const char*pageBuffer);
+        static unsigned short getFreeSpace(const char *pageBuffer);
 
-        static unsigned short getRecordNum(const char*pageBuffer);
+        static unsigned short getRecordNum(const char *pageBuffer);
 
         static bool checkNull(char *nullbuffer, unsigned short num, unsigned short totalbytes);
 
-        unsigned short getRecordOffset(const char* data);
+        unsigned short getRecordOffset(const char *data);
 
         //convert pass in data to on-page record
-        RC constructRecord(const std::vector<Attribute> &recordDescriptor, const char* data, char*& record, unsigned short &len);
+        RC constructRecord(const std::vector<Attribute> &recordDescriptor, const char *data, char *&record,
+                           unsigned short &len);
 
-        unsigned short writeSlotInfo(char* pageData, unsigned short offset, unsigned short len);
+        unsigned short
+        writeSlotInfo(char *pageData, unsigned short offset, unsigned short len, unsigned short &freeSpace);
 
-        RC readSlotInfo(const char* pageData, const RID& rid, unsigned short& offset, unsigned short& len);
+        RC readSlotInfo(const char *pageData, const RID &rid, unsigned short &offset, unsigned short &len);
 
-        RC updateSlotInfo(const char* pageData, const RID& rid, unsigned short& offset, unsigned short& len);
+        RC updateSlotInfo(const char *pageData, const RID &rid, unsigned short &offset, unsigned short &len);
 
         //convert on-page record  to pass in data
-        RC deconstructRecord(const std::vector<Attribute> &recordDescriptor, const char* data, char*& record);
+        RC deconstructRecord(const std::vector<Attribute> &recordDescriptor, const char *data, char *&record);
 
-        RC markDeleteRecord(char* pageData, const RID& rid);
+        RC markDeleteRecord(char *pageData, const RID &rid);
 
-        bool checkRecordtoMove(const char* pageData, const RID& rid);
+        RC insertConstructedRecord(FileHandle &fileHandle, const char *record, const unsigned &recordLen, RID &rid);
 
-        bool checkRecordDeleted(const char* pageData, const RID& rid);
+        bool checkRecordDeleted(const char *pageData, const RID &rid);
+
+        bool checkTombstone(const char *pageData, const RID &rid = {});
+
+        RC accessRealRecord(FileHandle &fileHandle, const RID &oriRid, RID &realRid);
+
+        RC readTombStone(const char *pageData, const RID &rid, RID &targetRid);
 
     protected:
         RecordBasedFileManager();                                                   // Prevent construction

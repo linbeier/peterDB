@@ -22,8 +22,8 @@ namespace PeterDB {
         CREA_FILE_FAIL = 2,
         REMV_FILE_FAIL = 3,
         CLOS_FILE_FAIL = 4,
-        FD_FAIL =   5,
-        OUT_OF_PAGE =   6,
+        FD_FAIL = 5,
+        OUT_OF_PAGE = 6,
         OOUT_SLOT = 7,
         RECORD_TOO_BIG = 8,
         RECORD_HAS_DEL = 9,
@@ -45,7 +45,7 @@ namespace PeterDB {
         ~PagedFileManager();                                                // Prevent unwanted destruction
         PagedFileManager(const PagedFileManager &);                         // Prevent construction by copying
         PagedFileManager &operator=(const PagedFileManager &);              // Prevent assignment
-        bool is_file_exist(const char* filename);
+        bool is_file_exist(const char *filename);
 
     private:
         std::string FilePath;
@@ -58,6 +58,8 @@ namespace PeterDB {
         unsigned readPageCounter;
         unsigned writePageCounter;
         unsigned appendPageCounter;
+        unsigned totalPage;
+        std::vector<unsigned short> freeSpaceList;
         FILE *fd;
 
         FileHandle();                                                       // Default constructor
@@ -69,7 +71,6 @@ namespace PeterDB {
         unsigned getNumberOfPages();                                        // Get the number of pages in the file
         RC collectCounterValues(unsigned &readPageCount, unsigned &writePageCount,
                                 unsigned &appendPageCount);                 // Put current counter values into variables
-    private:
         unsigned HiddenPage;
     };
 
