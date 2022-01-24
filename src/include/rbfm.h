@@ -1,6 +1,8 @@
 #ifndef _rbfm_h_
 #define _rbfm_h_
 
+#define TOMBSTONE_SIZE 7
+
 #include <vector>
 #include <bitset>
 
@@ -156,7 +158,7 @@ namespace PeterDB {
 
         RC readSlotInfo(const char *pageData, const RID &rid, unsigned short &offset, unsigned short &len);
 
-        RC updateSlotInfo(const char *pageData, const RID &rid, unsigned short &offset, unsigned short &len);
+        RC updateSlotInfo(const char *pageData, const RID &rid, unsigned short offset, unsigned short len);
 
         //convert on-page record  to pass in data
         RC deconstructRecord(const std::vector<Attribute> &recordDescriptor, const char *data, char *&record);

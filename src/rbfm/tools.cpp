@@ -48,11 +48,21 @@ namespace PeterDB {
         if (recordnum == 0)return 0;
 
         char buf[2];
-        memcpy(buf, pagebuffer + PAGE_SIZE - 4 * (recordnum + 1), sizeof(short));
-        unsigned short offset = *((short *) buf);
-        memcpy(buf, pagebuffer + PAGE_SIZE - 4 * (recordnum + 1) + 2, sizeof(short));
-        unsigned short len = *((short *) buf);
-        return offset + len;
+        unsigned short maxoffset = 0, len = 0;
+        for (int i = 1; i <= recordnum; i++) {
+            memcpy(buf, pagebuffer + PAGE_SIZE - 4 * (i + 1), sizeof(short));
+            unsigned short offset = *((short *) buf);
+            if (offset >= maxoffset) {
+                maxoffset = offset;
+                memcpy(buf, pagebuffer + PAGE_SIZE - 4 * (i + 1) + 2, sizeof(short));
+                len = *((short *) buf);
+            }
+        }
+//        memcpy(buf, pagebuffer + PAGE_SIZE - 4 * (recordnum + 1), sizeof(short));
+//        unsigned short offset = *((short *) buf);
+//        memcpy(buf, pagebuffer + PAGE_SIZE - 4 * (recordnum + 1) + 2, sizeof(short));
+//        unsigned short len = *((short *) buf);
+        return maxoffset + len;
     }
 
     //append slot info, slot number start from 1
@@ -94,16 +104,17 @@ namespace PeterDB {
         }
         memcpy(buf, pageData + PAGE_SIZE - 4 * (rid.slotNum + 1), sizeof(short));
         offset = *((unsigned short *) buf);
-        if (offset >= 32768) {
-            offset -= 32768;
-        }
+
         memcpy(buf, pageData + PAGE_SIZE - 4 * (rid.slotNum + 1) + 2, sizeof(short));
         len = *((unsigned short *) buf);
+//        if (len >= 32768) {
+//            len -= 32768;
+//        }
         return RC::ok;
     }
 
-    RC RecordBasedFileManager::updateSlotInfo(const char *pageData, const RID &rid, unsigned short &offset,
-                                              unsigned short &len) {
+    RC RecordBasedFileManager::updateSlotInfo(const char *pageData, const RID &rid, unsigned short offset,
+                                              unsigned short len) {
 
         if (getRecordNum(pageData) < rid.slotNum) {
             return RC::OOUT_SLOT;
@@ -215,7 +226,10 @@ namespace PeterDB {
 
         unsigned short offset = 0, len = 0;
         readSlotInfo(pageData, rid, offset, len);
-        unsigned short coffset = PAGE_SIZE + 1, clen = PAGE_SIZE + 1;
+        if (len >= 32768) {
+            len -= 32768;
+        }
+        unsigned short coffset = offset, clen = PAGE_SIZE + 1;
         updateSlotInfo(pageData, rid, coffset, clen);
 
         unsigned short recordNum = getRecordNum(pageData);
@@ -231,33 +245,38 @@ namespace PeterDB {
         return RC::ok;
     }
 
+    // todo: check if length in slot larger than PAGE_SIZE and smaller than 32768 (10000000 00000000)
     bool RecordBasedFileManager::checkRecordDeleted(const char *pageData, const RID &rid) {
         unsigned short offset = 0, len = 0;
         readSlotInfo(pageData, rid, offset, len);
-        if (offset > PAGE_SIZE) {
+        if (len < 32768 && len >= PAGE_SIZE) {
             return true;
         }
         return false;
     }
 
-    //check if first bit of slot is 1, if yes, it indicates this record is a tombstone
+    //check if first byte of record is 128(10000000), if yes, it indicates this record is a tombstone. First byte is field number, it will not be that big(field number has 2 bytes)
     bool RecordBasedFileManager::checkTombstone(const char *pageData, const RID &rid) {
         char buf[2];
         memcpy(buf, pageData + PAGE_SIZE - 4 * (rid.slotNum + 1), sizeof(short));
         unsigned short offset = *((unsigned short *) buf);
-        if (offset >= 32768) {//10000000 00000000
-            return true;
-        }
+        char singlebuf;
+        memcpy(&singlebuf, pageData + offset, sizeof(char));
+        unsigned short flag = *((unsigned short *) &singlebuf);
+        if (flag == 128)return true;
         return false;
     }
 
     RC RecordBasedFileManager::readTombStone(const char *pageData, const RID &rid, RID &targetRid) {
         unsigned short offset = 0, len = 0;
         readSlotInfo(pageData, rid, offset, len);
+        if (len >= 32768) {//10000000 00000000
+            len -= 32768;
+        }
         unsigned pageNum = 0;
         unsigned short slotNum = 0;
-        memcpy(&pageNum, pageData + offset, sizeof(int));
-        memcpy(&slotNum, pageData + offset + sizeof(int), sizeof(short));
+        memcpy(&pageNum, pageData + offset + 1, sizeof(int));
+        memcpy(&slotNum, pageData + offset + sizeof(int) + 1, sizeof(short));
 
         targetRid.pageNum = pageNum;
         targetRid.slotNum = slotNum;
@@ -274,6 +293,67 @@ namespace PeterDB {
             RID r = {realRid.pageNum, realRid.slotNum};
             accessRealRecord(fileHandle, r, realRid);
         }
+        return RC::ok;
+    }
+
+    //insert records that have been constructed, used by updateRecords
+    RC RecordBasedFileManager::insertConstructedRecord(FileHandle &fileHandle, const char *recordbuf,
+                                                       const unsigned int &buflen, RID &rid) {
+        //padding record to 6 bytes, at least 6 bytes to store a tombstone, otherwise manager need to shift right when
+        //record change to tombstone
+
+        unsigned short totalpage = fileHandle.getNumberOfPages();
+        if (totalpage == 0) {
+            insertNewRecordPage(fileHandle);
+            totalpage++;
+        }
+
+        char pagebuffer[PAGE_SIZE];
+        //check which page have enough free space, start from last page
+        if (buflen <= fileHandle.freeSpaceList.at(totalpage - 1) - 4) {
+
+            fileHandle.readPage(totalpage - 1, pagebuffer);
+            unsigned short offset = getRecordOffset(pagebuffer);
+            memcpy(pagebuffer + offset, recordbuf, buflen);
+
+            rid.pageNum = totalpage - 1;
+
+            unsigned short slotnum = writeSlotInfo(pagebuffer, offset, buflen, fileHandle.freeSpaceList[rid.pageNum]);
+
+            rid.slotNum = slotnum;
+
+        } else {
+
+            bool inserted = false;
+            for (int i = 0; i < fileHandle.totalPage - 1; i++) {
+                if (buflen <= fileHandle.freeSpaceList[i] - 4) {
+
+                    fileHandle.readPage(i, pagebuffer);
+                    unsigned short offset = getRecordOffset(pagebuffer);
+                    memcpy(pagebuffer + offset, recordbuf, buflen);
+
+                    rid.pageNum = i;
+                    unsigned short slotnum = writeSlotInfo(pagebuffer, offset, buflen,
+                                                           fileHandle.freeSpaceList[rid.pageNum]);
+                    inserted = true;
+                    rid.slotNum = slotnum;
+                }
+            }
+
+            if (!inserted) {
+                insertNewRecordPage(fileHandle);
+                totalpage++;
+                fileHandle.readPage(totalpage - 1, pagebuffer);
+                unsigned short offset = getRecordOffset(pagebuffer);
+                memcpy(pagebuffer + offset, recordbuf, buflen);
+                rid.pageNum = totalpage - 1;
+                unsigned short slotnum = writeSlotInfo(pagebuffer, offset, buflen,
+                                                       fileHandle.freeSpaceList[rid.pageNum]);
+                rid.slotNum = slotnum;
+            }
+        }
+
+        fileHandle.writePage(rid.pageNum, pagebuffer);
         return RC::ok;
     }
 }
