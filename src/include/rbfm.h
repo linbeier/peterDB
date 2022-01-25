@@ -44,7 +44,6 @@ namespace PeterDB {
     /********************************************************************
     * The scan iterator is NOT required to be implemented for Project 1 *
     ********************************************************************/
-    //todo: consider if RBFM_EOF need to redefined
 # define RBFM_EOF (-1)  // end of a scan operator
 
     //  RBFM_ScanIterator is an iterator to go through records
@@ -58,16 +57,37 @@ namespace PeterDB {
 
     class RBFM_ScanIterator {
     public:
-        RBFM_ScanIterator() = default;;
 
-        ~RBFM_ScanIterator() = default;;
+        FileHandle fd;
+        std::vector<Attribute> recordDescriptor;
+        std::vector<std::string> projAttrs;
+
+        RID currentRid;
+        AttrType valType;
+        unsigned valLen;
+        std::string compAttr;
+        CompOp op;
+        void *compData;
+
+        RBFM_ScanIterator()
+                : fd(), currentRid({0, 1}), , op(), compData(nullptr), valType(TypeInt), valLen(0) {
+
+        };
+
+        ~RBFM_ScanIterator() {
+            if (compData != nullptr) {
+                delete[](char *) compData;
+            }
+        };
+
+        bool checkCondSatisfy(char *data);
 
         // Never keep the results in the memory. When getNextRecord() is called,
         // a satisfying record needs to be fetched from the file.
         // "data" follows the same format as RecordBasedFileManager::insertRecord().
-        RC getNextRecord(RID &rid, void *data) { return static_cast<RC>(RBFM_EOF); };
+        RC getNextRecord(RID &rid, void *data);
 
-        RC close() { return static_cast<RC>(RBFM_EOF); };
+        RC close();
     };
 
     class RecordBasedFileManager {

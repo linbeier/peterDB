@@ -42,7 +42,7 @@ namespace PeterDB {
         char *recordbuf = new char[PAGE_SIZE];
         unsigned short buflen = 0;
         unsigned short result = constructRecord(recordDescriptor, static_cast<const char *>(data), recordbuf, buflen);
-        if (result > 4094) {
+        if (result > PAGE_SIZE - 2) {
             delete[]recordbuf;
             return RC::RECORD_TOO_BIG;
         }
@@ -279,7 +279,8 @@ namespace PeterDB {
         return RC::ok;
     }
 
-    //First bit of length in slot indicates whether this is a tombstone(not first bit of offset, because we may change offset when we shift right/left)
+    //First bit of length in slot indicates whether this is a tombstone
+    // (not first bit of offset because we may change offset when we shift right/left)
     RC RecordBasedFileManager::updateRecord(FileHandle &fileHandle, const std::vector<Attribute> &recordDescriptor,
                                             const void *data, const RID &rid) {
         //jump across tombstones
@@ -389,7 +390,69 @@ namespace PeterDB {
 
     RC RecordBasedFileManager::readAttribute(FileHandle &fileHandle, const std::vector<Attribute> &recordDescriptor,
                                              const RID &rid, const std::string &attributeName, void *data) {
+        unsigned fieldNum = recordDescriptor.size();
+        //find location of attribute
+        unsigned loc = 0;
+        AttrType type = TypeInt;
+        for (int i = 0; i < recordDescriptor.size(); i++) {
+            if (recordDescriptor[i].name == attributeName) {
+                loc = i;
+                type = recordDescriptor[i].type;
+                break;
+            }
+        }
+        //read record
+        char *pagebuffer = new char[PAGE_SIZE];
+        fileHandle.readPage(rid.pageNum, pagebuffer);
+        if (checkRecordDeleted(pagebuffer, rid)) {
+            delete[]pagebuffer;
+            return RC::RECORD_HAS_DEL;
+        }
+        RID realRid = {rid.pageNum, rid.slotNum};
+        if (checkTombstone(pagebuffer, rid)) {
+            accessRealRecord(fileHandle, rid, realRid);
+        }
+        if (realRid.pageNum != rid.pageNum) {
+            fileHandle.readPage(realRid.pageNum, pagebuffer);
+        }
+        unsigned short offset = 0, len = 0;
+        readSlotInfo(pagebuffer, rid, offset, len);
+        if (len >= 32768) {
+            len -= 32768;
+        }
+        char *recordbuf = new char[len];
+        memcpy(recordbuf, pagebuffer + offset, len);
 
+        //fetch the end offset
+        unsigned short endOff = 0;
+        memcpy(&endOff, recordbuf + 2 * (loc + 1), sizeof(short));
+        if (endOff == 0) {
+            char nullp = 0;
+            memcpy(data, &nullp, sizeof(char));
+        } else {
+            //find start offset: check whether field before is 0(indicate null), if yes, check the former one again
+            unsigned startOff = 2 * (fieldNum + 1);
+            for (unsigned i = loc - 1; i >= 0; i--) {
+                unsigned off = 0;
+                memcpy(&off, recordbuf + 2 * (i + 1), sizeof(short));
+                if (off != 0) {
+                    startOff = off;
+                    break;
+                }
+            }
+            char nullp = 1;
+            memcpy(data, &nullp, sizeof(char));
+            if (type == TypeVarChar) {
+                unsigned rlen = endOff - startOff;
+                memcpy((char *) data + sizeof(char), &rlen, sizeof(int));
+                memcpy((char *) data + sizeof(char) + sizeof(int), recordbuf + startOff, rlen);
+            } else {
+                memcpy((char *) data + sizeof(char), recordbuf + startOff, endOff - startOff);
+            }
+        }
+
+        delete[]pagebuffer;
+        delete[]recordbuf;
         return RC::ok;
     }
 
@@ -397,8 +460,80 @@ namespace PeterDB {
                                     const std::string &conditionAttribute, const CompOp compOp, const void *value,
                                     const std::vector<std::string> &attributeNames,
                                     RBFM_ScanIterator &rbfm_ScanIterator) {
+
+        rbfm_ScanIterator.fd = fileHandle;
+        rbfm_ScanIterator.op = compOp;
+        rbfm_ScanIterator.projAttrs = attributeNames;
+        rbfm_ScanIterator.recordDescriptor = recordDescriptor;
+        //start rid
+        rbfm_ScanIterator.currentRid = RID{0, 1};
+        AttrType compType = TypeInt;
+        for (int i = 0; i < recordDescriptor.size(); i++) {
+            if (recordDescriptor[i].name == conditionAttribute) {
+                rbfm_ScanIterator.compAttr = conditionAttribute;
+                compType = recordDescriptor[i].type;
+                rbfm_ScanIterator.valType = compType;
+                break;
+            }
+        }
+//        for (int i = 0; i < attributeNames.size(); i++) {
+//            for (int j = 0; j < recordDescriptor.size(); j++) {
+//                if (attributeNames[i] == recordDescriptor[j].name) {
+//                    rbfm_ScanIterator.projAttrs.push_back(j);
+//                    break;
+//                }
+//            }
+//        }
+        if (compType == TypeReal || compType == TypeInt) {
+            rbfm_ScanIterator.valLen = sizeof(int);
+            rbfm_ScanIterator.compData = new int;
+            memcpy(rbfm_ScanIterator.compData, value, sizeof(int));
+        } else if (compType == TypeVarChar) {
+            unsigned len = 0;
+            memcpy(&len, value, sizeof(int));
+            rbfm_ScanIterator.valLen = len;
+            rbfm_ScanIterator.compData = new char[len];
+            memcpy(rbfm_ScanIterator.compData, (char *) value + sizeof(int), len);
+
+        }
+
         return RC::ok;
     }
+
+    RC RBFM_ScanIterator::getNextRecord(RID &rid, void *data) {
+        //check if it meets the end
+        if (currentRid.pageNum > fd.totalPage) {
+            return static_cast<RC>RBFM_EOF;
+        }
+        char *pageBuf = new char[PAGE_SIZE];
+
+        for (unsigned p = currentRid.pageNum; p < fd.totalPage; p++) {
+            currentRid.pageNum = p;
+            fd.readPage(currentRid.pageNum, pageBuf);
+            unsigned short recordNum = 0;
+            recordNum = RecordBasedFileManager::getRecordNum(pageBuf);
+
+            for (unsigned short s = currentRid.slotNum; s <= recordNum; s++) {
+                char *buffer = new char[PAGE_SIZE];
+                currentRid.slotNum = s;
+                RecordBasedFileManager::instance().readAttribute(fd, recordDescriptor, currentRid, compAttr, buffer);
+                char nullp = 0;
+                memcpy(&nullp, buffer, sizeof(char));
+                if (nullp == 0) {
+                    //null field
+
+                } else {
+
+                }
+            }
+        }
+        return static_cast<RC>RBFM_EOF;
+    }
+
+    RC RBFM_ScanIterator::close() {
+
+    }
+
 
 } // namespace PeterDB
 

@@ -356,4 +356,12 @@ namespace PeterDB {
         fileHandle.writePage(rid.pageNum, pagebuffer);
         return RC::ok;
     }
+
+    bool RBFM_ScanIterator::checkCondSatisfy(char *data) {
+        char nullp = 0;
+        memcpy(&nullp, data, sizeof(char));
+
+        return false;
+    }
+
 }
