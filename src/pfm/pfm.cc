@@ -11,7 +11,6 @@ namespace PeterDB {
     }
 
     PagedFileManager::~PagedFileManager() {
-        //todo
 
     }
 

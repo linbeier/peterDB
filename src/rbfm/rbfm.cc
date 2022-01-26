@@ -149,7 +149,6 @@ namespace PeterDB {
         return RC::ok;
     }
 
-    //todo: recursive delete record if meets tombstone
     RC RecordBasedFileManager::deleteRecord(FileHandle &fileHandle, const std::vector<Attribute> &recordDescriptor,
                                             const RID &rid) {
 
@@ -520,10 +519,18 @@ namespace PeterDB {
                 char nullp = 0;
                 memcpy(&nullp, buffer, sizeof(char));
                 if (nullp == 0) {
-                    //null field
+                    //not null
+                    if (checkCondSatisfy(buffer + 1)) {
+                        rid = {p, s};
+                        //construct data from projAttr
+                        unsigned resultLen = 0;
+                        RecordBasedFileManager::instance().readProjAttr(fd, recordDescriptor, currentRid, projAttrs,
+                                                                        data, resultLen);
 
+                    }
                 } else {
-
+                    //null value
+                    return static_cast<RC>RBFM_EOF;
                 }
             }
         }

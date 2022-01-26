@@ -70,7 +70,7 @@ namespace PeterDB {
         void *compData;
 
         RBFM_ScanIterator()
-                : fd(), currentRid({0, 1}), , op(), compData(nullptr), valType(TypeInt), valLen(0) {
+                : fd(), currentRid({0, 1}), op(), compData(nullptr), valType(TypeInt), valLen(0) {
 
         };
 
@@ -194,6 +194,9 @@ namespace PeterDB {
         RC accessRealRecord(FileHandle &fileHandle, const RID &oriRid, RID &realRid);
 
         RC readTombStone(const char *pageData, const RID &rid, RID &targetRid);
+
+        RC readProjAttr(FileHandle &fileHandle, const std::vector<Attribute> &recordDescriptor, const RID &rid,
+                        const std::vector<std::string> &projAttr, void *data, unsigned &len);
 
     protected:
         RecordBasedFileManager();                                                   // Prevent construction

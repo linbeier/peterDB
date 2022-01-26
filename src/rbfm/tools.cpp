@@ -12,7 +12,6 @@ namespace PeterDB {
         unsigned short free = 4092;
         unsigned short reco = 0;
 
-        //todo: does this directly read work?
         memcpy(pagebuffer + 4092 * sizeof(char), &reco, 2 * sizeof(char));
         memcpy(pagebuffer + 4094 * sizeof(char), &free, 2 * sizeof(char));
 
@@ -126,7 +125,6 @@ namespace PeterDB {
         return RC::ok;
     }
 
-    //todo: before call this function, allocate mem for recordbuffer.
     RC RecordBasedFileManager::constructRecord(const std::vector<Attribute> &recordDescriptor, const char *data,
                                                char *&recordbuffer, unsigned short &len) {
 
@@ -176,7 +174,7 @@ namespace PeterDB {
                 memcpy(recordbuffer + (i + 1) * sizeof(short), &bufpointer, sizeof(short));
             }
         }
-        //todo: re-allocate buffer with len?
+
         len = bufpointer;
         delete[]nullbuffer;
         return RC::ok;
@@ -245,7 +243,7 @@ namespace PeterDB {
         return RC::ok;
     }
 
-    // todo: check if length in slot larger than PAGE_SIZE and smaller than 32768 (10000000 00000000)
+    // check if length in slot larger than PAGE_SIZE and smaller than 32768 (10000000 00000000)
     bool RecordBasedFileManager::checkRecordDeleted(const char *pageData, const RID &rid) {
         unsigned short offset = 0, len = 0;
         readSlotInfo(pageData, rid, offset, len);
@@ -357,11 +355,196 @@ namespace PeterDB {
         return RC::ok;
     }
 
+    RC RecordBasedFileManager::readProjAttr(FileHandle &fileHandle, const std::vector<Attribute> &recordDescriptor,
+                                            const RID &rid, const std::vector<std::string> &projAttr, void *data,
+                                            unsigned &rlen) {
+        unsigned fieldNum = projAttr.size();
+        //field num convert to null indicator
+        std::vector<char> nullIndic(fieldNum / 8 + (fieldNum % 8 == 0 ? 0 : 1), 0);
+        //pointer of current record
+        unsigned short recordpointer = nullIndic.size();
+        std::vector<unsigned> loc;
+        std::vector<AttrType> type;
+        for (int p = 0; p < projAttr.size(); p++) {
+            for (int i = 0; i < recordDescriptor.size(); i++) {
+                if (recordDescriptor[i].name == projAttr[p]) {
+                    loc.push_back(i);
+                    type.push_back(recordDescriptor[i].type);
+                    break;
+                }
+            }
+        }
+
+        //read record
+        char *pagebuffer = new char[PAGE_SIZE];
+        fileHandle.readPage(rid.pageNum, pagebuffer);
+        if (checkRecordDeleted(pagebuffer, rid)) {
+            delete[]pagebuffer;
+            return RC::RECORD_HAS_DEL;
+        }
+        RID realRid = {rid.pageNum, rid.slotNum};
+        if (checkTombstone(pagebuffer, rid)) {
+            accessRealRecord(fileHandle, rid, realRid);
+        }
+        if (realRid.pageNum != rid.pageNum) {
+            fileHandle.readPage(realRid.pageNum, pagebuffer);
+        }
+        unsigned short offset = 0, len = 0;
+        readSlotInfo(pagebuffer, rid, offset, len);
+        if (len >= 32768) {
+            len -= 32768;
+        }
+        char *recordbuf = new char[len];
+        memcpy(recordbuf, pagebuffer + offset, len);
+
+        //fetch the end offset
+        for (int p = 0; p < projAttr.size(); p++) {
+            unsigned short endOff = 0;
+            memcpy(&endOff, recordbuf + 2 * (loc[p] + 1), sizeof(short));
+            if (endOff == 0) {
+                //null field
+                nullIndic[p / 8] = nullIndic[p / 8] | (1 << (7 - (p % 8)));
+            } else {
+                //find start offset: check whether field before is 0(indicate null), if yes, check the former one again
+                unsigned startOff = 2 * (fieldNum + 1);
+                for (unsigned i = loc[p] - 1; i >= 0; i--) {
+                    unsigned off = 0;
+                    memcpy(&off, recordbuf + 2 * (i + 1), sizeof(short));
+                    if (off != 0) {
+                        startOff = off;
+                        break;
+                    }
+                }
+
+                if (type[p] == TypeVarChar) {
+                    unsigned totalLen = endOff - startOff;
+                    memcpy((char *) data + recordpointer, &totalLen, sizeof(int));
+                    recordpointer += sizeof(int);
+                    memcpy((char *) data + recordpointer, recordbuf + startOff, totalLen);
+                    recordpointer += totalLen;
+                } else {
+                    memcpy((char *) data + recordpointer, recordbuf + startOff, endOff - startOff);
+                    recordpointer += sizeof(int);
+                }
+            }
+        }
+
+        for (int i = 0; i < nullIndic.size(); ++i) {
+            memcpy((char *) data + i, &nullIndic[i], sizeof(char));
+        }
+        rlen = recordpointer;
+
+        delete[]pagebuffer;
+        delete[]recordbuf;
+        return RC::ok;
+    }
+
+    //todo: need to finish string comparison
     bool RBFM_ScanIterator::checkCondSatisfy(char *data) {
         char nullp = 0;
         memcpy(&nullp, data, sizeof(char));
+        unsigned len = sizeof(int), recordP = 1;
+        if (valType == TypeVarChar) {
+            memcpy(&len, data + recordP, sizeof(int));
+            recordP += sizeof(int);
+        }
+        char *recordVal = new char[len];
+        memcpy(recordVal, data + recordP, len);
+        bool result = false;
 
+        switch (op) {
+            case EQ_OP:
+                if (memcmp(recordVal, compData, len) == 0) {
+                    result = true;
+                } else {
+                    result = false;
+                }
+                break;
+
+            case LT_OP:
+                if (valType == TypeInt) {
+                    if (*((int *) recordVal) < *((int *) compData)) {
+                        result = true;
+                    } else {
+                        result = false;
+                    }
+                } else if (valType == TypeReal) {
+                    if (*((float *) recordVal) < *((float *) compData)) {
+                        result = true;
+                    } else {
+                        result = false;
+                    }
+                } else if (valType == TypeVarChar) {
+
+                }
+                break;
+            case LE_OP:
+                if (valType == TypeInt) {
+                    if (*((int *) recordVal) <= *((int *) compData)) {
+                        result = true;
+                    } else {
+                        result = false;
+                    }
+                } else if (valType == TypeReal) {
+                    if (*((float *) recordVal) <= *((float *) compData)) {
+                        result = true;
+                    } else {
+                        result = false;
+                    }
+                } else if (valType == TypeVarChar) {
+
+                }
+                break;
+            case GT_OP:
+                if (valType == TypeInt) {
+                    if (*((int *) recordVal) > *((int *) compData)) {
+                        result = true;
+                    } else {
+                        result = false;
+                    }
+                } else if (valType == TypeReal) {
+                    if (*((float *) recordVal) > *((float *) compData)) {
+                        result = true;
+                    } else {
+                        result = false;
+                    }
+                } else if (valType == TypeVarChar) {
+
+                }
+                break;
+            case GE_OP:
+                if (valType == TypeInt) {
+                    if (*((int *) recordVal) >= *((int *) compData)) {
+                        result = true;
+                    } else {
+                        result = false;
+                    }
+                } else if (valType == TypeReal) {
+                    if (*((float *) recordVal) >= *((float *) compData)) {
+                        result = true;
+                    } else {
+                        result = false;
+                    }
+                } else if (valType == TypeVarChar) {
+
+                }
+                break;
+            case NE_OP:
+                if (memcmp(recordVal, compData, len) != 0) {
+                    result = true;
+                } else {
+                    result = false;
+                }
+                break;
+            case NO_OP:
+                result = true;
+                break;
+        }
+
+        delete[]recordVal;
+        if (result)return true;
         return false;
     }
+
 
 }
