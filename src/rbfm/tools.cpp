@@ -439,7 +439,7 @@ namespace PeterDB {
         return RC::ok;
     }
 
-    //todo: need to finish string comparison
+    // finish string comparison
     bool RBFM_ScanIterator::checkCondSatisfy(char *data) {
         char nullp = 0;
         memcpy(&nullp, data, sizeof(char));
@@ -475,7 +475,9 @@ namespace PeterDB {
                         result = false;
                     }
                 } else if (valType == TypeVarChar) {
-
+                    std::string recordStr(recordVal, len);
+                    std::string compStr((char *) compData, valLen);
+                    result = recordStr < compStr;
                 }
                 break;
             case LE_OP:
@@ -492,7 +494,9 @@ namespace PeterDB {
                         result = false;
                     }
                 } else if (valType == TypeVarChar) {
-
+                    std::string recordStr(recordVal, len);
+                    std::string compStr((char *) compData, valLen);
+                    result = recordStr <= compStr;
                 }
                 break;
             case GT_OP:
@@ -509,7 +513,9 @@ namespace PeterDB {
                         result = false;
                     }
                 } else if (valType == TypeVarChar) {
-
+                    std::string recordStr(recordVal, len);
+                    std::string compStr((char *) compData, valLen);
+                    result = recordStr > compStr;
                 }
                 break;
             case GE_OP:
@@ -526,7 +532,9 @@ namespace PeterDB {
                         result = false;
                     }
                 } else if (valType == TypeVarChar) {
-
+                    std::string recordStr(recordVal, len);
+                    std::string compStr((char *) compData, valLen);
+                    result = recordStr >= compStr;
                 }
                 break;
             case NE_OP:

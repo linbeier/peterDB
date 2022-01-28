@@ -25,6 +25,8 @@ namespace PeterDB {
     // Relation Manager
     class RelationManager {
     public:
+        RecordBasedFileManager *rbfm;
+
         static RelationManager &instance();
 
         RC createCatalog();
@@ -64,6 +66,20 @@ namespace PeterDB {
         RC addAttribute(const std::string &tableName, const Attribute &attr);
 
         RC dropAttribute(const std::string &tableName, const std::string &attributeName);
+
+
+        //tool functions
+
+        RC formTableAttr(std::vector<Attribute> &descriptor);
+
+        RC formColumnsAttr(std::vector<Attribute> &descriptor);
+
+        RC constructTableRecord(std::vector<Attribute> &descriptor, unsigned *table_id, const char *table_name,
+                                const char *file_name, char *data, unsigned &dataLen);
+
+        RC constructColumnsRecord(std::vector<Attribute> &descriptor, unsigned *table_id, const char *column_name,
+                                  unsigned *column_type, unsigned *column_length, unsigned *column_position,
+                                  char *data);
 
     protected:
         RelationManager();                                                  // Prevent construction

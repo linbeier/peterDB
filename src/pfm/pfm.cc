@@ -24,6 +24,7 @@ namespace PeterDB {
             return RC::CREA_FILE_FAIL;
         } else {
             FILE *fd = fopen(fileName.c_str(), "wb");
+            FILE *fd2 = fopen((fileName + "_aux").c_str(), "wb");
             if (fd == nullptr) {
                 return RC::CREA_FILE_FAIL;
             }
@@ -50,6 +51,7 @@ namespace PeterDB {
             return RC::REMV_FILE_FAIL;
         } else {
             const int result = remove(fileName.c_str());
+            remove((fileName + "_aux").c_str());
             if (result != 0) {
                 return RC::REMV_FILE_FAIL;
             }
@@ -63,6 +65,7 @@ namespace PeterDB {
             return RC::OPEN_FILE_FAIL;
         } else {
             FILE *fd = fopen(fileName.c_str(), "r+b");
+            FILE *fdAux = fopen((fileName + "_aux").c_str(), "r+b");
             if (fd == nullptr) {
                 return RC::OPEN_FILE_FAIL;
             }
@@ -82,12 +85,16 @@ namespace PeterDB {
             fileHandle.appendPageCounter = (unsigned int) appendcounter;
             fileHandle.totalPage = (unsigned int) totalPage;
             fileHandle.fd = fd;
+            fileHandle.fd_aux = fdAux;
 
             for (int p = 0; p < fileHandle.totalPage; p++) {
-                fseek(fd, p * PAGE_SIZE, SEEK_SET);
-                fread(pagebuffer, PAGE_SIZE, 1, fileHandle.fd);
+                if ((p * 2) % PAGE_SIZE == 0) {
+                    fseek(fdAux, ((p * 2) / PAGE_SIZE) * PAGE_SIZE, SEEK_SET);
+                    fread(pagebuffer, PAGE_SIZE, 1, fileHandle.fd_aux);
+                }
+
                 char freespace[2];
-                memcpy(freespace, pagebuffer + 4094, 2 * sizeof(char));
+                memcpy(freespace, pagebuffer + ((p * 2) % PAGE_SIZE), 2 * sizeof(char));
                 unsigned short result = *((unsigned short *) freespace);
                 fileHandle.freeSpaceList.push_back(result);
             }
@@ -111,31 +118,29 @@ namespace PeterDB {
             fseek(fileHandle.fd, 0, SEEK_SET);
             fwrite(pagebuffer, 1, PAGE_SIZE, fileHandle.fd);
 
-//            unsigned iteredPage = 0;
-//            for (int p = 0; p < fileHandle.HiddenPage; p++) {
-//
-//                unsigned readSize = 0;
-//                if (p == 0)readSize = 4 * sizeof(int);
-//
-//                for (; iteredPage < fileHandle.totalPage || readSize < PAGE_SIZE; iteredPage++) {
-//
-//                    memcpy(pagebuffer + readSize, &fileHandle.freeSpaceList.at(iteredPage), sizeof(short));
-//                    readSize += sizeof(short);
-//
-//                }
-//                fseek(fileHandle.fd, p * PAGE_SIZE, SEEK_SET);
-//                fwrite(pagebuffer + p * PAGE_SIZE, 1, PAGE_SIZE, fileHandle.fd);
-//            }
+            for (int p = 0; p < fileHandle.totalPage; p++) {
+
+                memcpy(pagebuffer + ((p * 2) % PAGE_SIZE), &fileHandle.freeSpaceList[p], 2 * sizeof(char));
+
+                if ((p * 2) % PAGE_SIZE == PAGE_SIZE - 2) {
+                    fseek(fileHandle.fd_aux, ((p * 2) / PAGE_SIZE) * PAGE_SIZE, SEEK_SET);
+                    fwrite(pagebuffer, 1, PAGE_SIZE, fileHandle.fd_aux);
+                }
+            }
+            fseek(fileHandle.fd_aux, ((fileHandle.totalPage * 2) / PAGE_SIZE) * PAGE_SIZE, SEEK_SET);
+            fwrite(pagebuffer, 1, PAGE_SIZE, fileHandle.fd_aux);
 
             //close file
             fclose(fileHandle.fd);
+            fclose(fileHandle.fd_aux);
             fileHandle.fd = nullptr;
+            fileHandle.fd_aux = nullptr;
 
             return RC::ok;
         }
     }
 
-    FileHandle::FileHandle() : fd(nullptr), HiddenPage(1), freeSpaceList() {
+    FileHandle::FileHandle() : fd(nullptr), HiddenPage(1), freeSpaceList(), fd_aux(nullptr) {
         readPageCounter = 0;
         writePageCounter = 0;
         appendPageCounter = 0;
@@ -187,6 +192,9 @@ namespace PeterDB {
             }
             appendPageCounter++;
             totalPage++;
+            if (freeSpaceList.size() == totalPage - 1) {
+                freeSpaceList.push_back(PAGE_SIZE);
+            }
             return RC::ok;
         }
     }

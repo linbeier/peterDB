@@ -49,6 +49,7 @@ namespace PeterDB {
 
     private:
         std::string FilePath;
+        std::string FileAuxPath;
         unsigned HiddenPage;
     };
 
@@ -61,6 +62,7 @@ namespace PeterDB {
         unsigned totalPage;
         std::vector<unsigned short> freeSpaceList;
         FILE *fd;
+        FILE *fd_aux;
 
         FileHandle();                                                       // Default constructor
         ~FileHandle();                                                      // Destructor

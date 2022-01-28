@@ -500,6 +500,7 @@ namespace PeterDB {
     }
 
     RC RBFM_ScanIterator::getNextRecord(RID &rid, void *data) {
+        if (closed) return static_cast<RC>RBFM_EOF;
         //check if it meets the end
         if (currentRid.pageNum > fd.totalPage) {
             return static_cast<RC>RBFM_EOF;
@@ -530,15 +531,18 @@ namespace PeterDB {
                     }
                 } else {
                     //null value
-                    return static_cast<RC>RBFM_EOF;
+                    continue;
                 }
             }
         }
+
+        delete[]pageBuf;
         return static_cast<RC>RBFM_EOF;
     }
 
     RC RBFM_ScanIterator::close() {
-
+        closed = true;
+        return RC::ok;
     }
 
 

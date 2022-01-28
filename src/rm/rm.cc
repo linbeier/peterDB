@@ -6,7 +6,10 @@ namespace PeterDB {
         return _relation_manager;
     }
 
-    RelationManager::RelationManager() = default;
+    RelationManager::RelationManager() : rbfm(nullptr) {
+        rbfm = &RecordBasedFileManager::instance();
+
+    }
 
     RelationManager::~RelationManager() = default;
 
@@ -15,6 +18,29 @@ namespace PeterDB {
     RelationManager &RelationManager::operator=(const RelationManager &) = default;
 
     RC RelationManager::createCatalog() {
+        unsigned table_id = 1;
+        std::string table_name = "Tables";
+        std::string file_name = "Tables";
+        FileHandle fd_table;
+
+        rbfm->createFile(table_name);
+        rbfm->openFile(table_name, fd_table);
+        std::vector<Attribute> recordDescriptor;
+        formTableAttr(recordDescriptor);
+
+        char *record = new char[106];
+        unsigned recordLen = 0;
+        constructTableRecord(recordDescriptor, &table_id, table_name.c_str(), file_name.c_str(), record, recordLen);
+        RID rid;
+        rbfm->insertRecord(fd_table, recordDescriptor, record, rid);
+
+        table_id++;
+        table_name = "Columns";
+        file_name = "Columns";
+        constructTableRecord(recordDescriptor, &table_id, table_name.c_str(), file_name.c_str(), record, recordLen);
+        rbfm->insertRecord(fd_table, recordDescriptor, record, rid);
+
+        
         return -1;
     }
 

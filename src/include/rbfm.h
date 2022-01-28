@@ -58,6 +58,8 @@ namespace PeterDB {
     class RBFM_ScanIterator {
     public:
 
+        bool closed;
+
         FileHandle fd;
         std::vector<Attribute> recordDescriptor;
         std::vector<std::string> projAttrs;
