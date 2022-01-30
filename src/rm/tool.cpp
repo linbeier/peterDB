@@ -115,6 +115,30 @@ namespace PeterDB {
         }
         memcpy(data, &nullIndic, sizeof(char));
 
+        return RC::ok;
     }
+
+    unsigned RelationManager::getLastTableId(std::vector<Attribute> &descriptor, FileHandle &fd) {
+
+        int value = 0;
+        RBFM_ScanIterator iter;
+        rbfm->scan(fd, descriptor, "table-id", NO_OP,
+                   &value, {"table-id"}, iter);
+
+        RID rid;
+        unsigned max_table_id = 0;
+        unsigned table_id = 0;
+        char null = '\0';
+        char *data = new char[5];
+        while (iter.getNextRecord(rid, data) == RC::ok) {
+            memcpy(&null, data, sizeof(char));
+            if (null == '\0') {
+                memcpy(&table_id, data + 1, sizeof(int));
+                max_table_id = table_id > max_table_id ? table_id : max_table_id;
+            }
+        }
+        return max_table_id;
+    }
+
 
 }

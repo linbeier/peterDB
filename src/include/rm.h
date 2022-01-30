@@ -26,6 +26,8 @@ namespace PeterDB {
     class RelationManager {
     public:
         RecordBasedFileManager *rbfm;
+        FileHandle *fd_table;
+        FileHandle *fd_col;
 
         static RelationManager &instance();
 
@@ -80,6 +82,8 @@ namespace PeterDB {
         RC constructColumnsRecord(std::vector<Attribute> &descriptor, unsigned *table_id, const char *column_name,
                                   unsigned *column_type, unsigned *column_length, unsigned *column_position,
                                   char *data);
+
+        unsigned getLastTableId(std::vector<Attribute> &descriptor, FileHandle &fd);
 
     protected:
         RelationManager();                                                  // Prevent construction

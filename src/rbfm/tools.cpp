@@ -358,7 +358,7 @@ namespace PeterDB {
     RC RecordBasedFileManager::readProjAttr(FileHandle &fileHandle, const std::vector<Attribute> &recordDescriptor,
                                             const RID &rid, const std::vector<std::string> &projAttr, void *data,
                                             unsigned &rlen) {
-        unsigned fieldNum = projAttr.size();
+        unsigned fieldNum = recordDescriptor.size();
         //field num convert to null indicator
         std::vector<char> nullIndic(fieldNum / 8 + (fieldNum % 8 == 0 ? 0 : 1), 0);
         //pointer of current record
@@ -407,7 +407,7 @@ namespace PeterDB {
             } else {
                 //find start offset: check whether field before is 0(indicate null), if yes, check the former one again
                 unsigned startOff = 2 * (fieldNum + 1);
-                for (unsigned i = loc[p] - 1; i >= 0; i--) {
+                for (int i = loc[p] - 1; i >= 0; i--) {
                     unsigned off = 0;
                     memcpy(&off, recordbuf + 2 * (i + 1), sizeof(short));
                     if (off != 0) {
@@ -443,18 +443,41 @@ namespace PeterDB {
     bool RBFM_ScanIterator::checkCondSatisfy(char *data) {
         char nullp = 0;
         memcpy(&nullp, data, sizeof(char));
-        unsigned len = sizeof(int), recordP = 1;
-        if (valType == TypeVarChar) {
-            memcpy(&len, data + recordP, sizeof(int));
-            recordP += sizeof(int);
-        }
-        char *recordVal = new char[len];
-        memcpy(recordVal, data + recordP, len);
+        unsigned len = 0, recordP = 1;
+        bool isNull = false;
         bool result = false;
+
+        //without null pointer
+        char *recordVal;
+
+        if (nullp != '\0') {
+            isNull = true;
+            len = 1;
+            recordVal = new char;
+            memcpy(recordVal, data, 1);
+        } else {
+            if (valType == TypeVarChar) {
+                memcpy(&len, data + recordP, sizeof(int));
+                recordP += sizeof(int);
+                recordVal = new char[len];
+                memcpy(recordVal, data + recordP, len);
+            } else {
+                len = sizeof(int);
+                recordVal = new char[len];
+                memcpy(recordVal, data + recordP, sizeof(int));
+            }
+        }
+
+        memcpy(&nullp, compData, 1);
+        if (nullp != '\0') {
+            isNull = true;
+            len = 1;
+        }
+        char *compRealData = (char *) compData + recordP;
 
         switch (op) {
             case EQ_OP:
-                if (memcmp(recordVal, compData, len) == 0) {
+                if (memcmp(recordVal, compRealData, len) == 0) {
                     result = true;
                 } else {
                     result = false;
@@ -462,83 +485,99 @@ namespace PeterDB {
                 break;
 
             case LT_OP:
+                if (isNull) {
+                    result = false;
+                    break;
+                }
                 if (valType == TypeInt) {
-                    if (*((int *) recordVal) < *((int *) compData)) {
+                    if (*((int *) recordVal) < *((int *) compRealData)) {
                         result = true;
                     } else {
                         result = false;
                     }
                 } else if (valType == TypeReal) {
-                    if (*((float *) recordVal) < *((float *) compData)) {
+                    if (*((float *) recordVal) < *((float *) compRealData)) {
                         result = true;
                     } else {
                         result = false;
                     }
                 } else if (valType == TypeVarChar) {
                     std::string recordStr(recordVal, len);
-                    std::string compStr((char *) compData, valLen);
+                    std::string compStr((char *) compRealData, valLen);
                     result = recordStr < compStr;
                 }
                 break;
             case LE_OP:
+                if (isNull) {
+                    result = false;
+                    break;
+                }
                 if (valType == TypeInt) {
-                    if (*((int *) recordVal) <= *((int *) compData)) {
+                    if (*((int *) recordVal) <= *((int *) compRealData)) {
                         result = true;
                     } else {
                         result = false;
                     }
                 } else if (valType == TypeReal) {
-                    if (*((float *) recordVal) <= *((float *) compData)) {
+                    if (*((float *) recordVal) <= *((float *) compRealData)) {
                         result = true;
                     } else {
                         result = false;
                     }
                 } else if (valType == TypeVarChar) {
                     std::string recordStr(recordVal, len);
-                    std::string compStr((char *) compData, valLen);
+                    std::string compStr((char *) compRealData, valLen);
                     result = recordStr <= compStr;
                 }
                 break;
             case GT_OP:
+                if (isNull) {
+                    result = false;
+                    break;
+                }
                 if (valType == TypeInt) {
-                    if (*((int *) recordVal) > *((int *) compData)) {
+                    if (*((int *) recordVal) > *((int *) compRealData)) {
                         result = true;
                     } else {
                         result = false;
                     }
                 } else if (valType == TypeReal) {
-                    if (*((float *) recordVal) > *((float *) compData)) {
+                    if (*((float *) recordVal) > *((float *) compRealData)) {
                         result = true;
                     } else {
                         result = false;
                     }
                 } else if (valType == TypeVarChar) {
                     std::string recordStr(recordVal, len);
-                    std::string compStr((char *) compData, valLen);
+                    std::string compStr((char *) compRealData, valLen);
                     result = recordStr > compStr;
                 }
                 break;
             case GE_OP:
+                if (isNull) {
+                    result = false;
+                    break;
+                }
                 if (valType == TypeInt) {
-                    if (*((int *) recordVal) >= *((int *) compData)) {
+                    if (*((int *) recordVal) >= *((int *) compRealData)) {
                         result = true;
                     } else {
                         result = false;
                     }
                 } else if (valType == TypeReal) {
-                    if (*((float *) recordVal) >= *((float *) compData)) {
+                    if (*((float *) recordVal) >= *((float *) compRealData)) {
                         result = true;
                     } else {
                         result = false;
                     }
                 } else if (valType == TypeVarChar) {
                     std::string recordStr(recordVal, len);
-                    std::string compStr((char *) compData, valLen);
+                    std::string compStr((char *) compRealData, valLen);
                     result = recordStr >= compStr;
                 }
                 break;
             case NE_OP:
-                if (memcmp(recordVal, compData, len) != 0) {
+                if (memcmp(recordVal, compRealData, len) != 0) {
                     result = true;
                 } else {
                     result = false;

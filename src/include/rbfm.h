@@ -67,12 +67,14 @@ namespace PeterDB {
         RID currentRid;
         AttrType valType;
         unsigned valLen;
+        bool isValNull;
         std::string compAttr;
         CompOp op;
         void *compData;
 
         RBFM_ScanIterator()
-                : fd(), currentRid({0, 1}), op(), compData(nullptr), valType(TypeInt), valLen(0) {
+                : fd(), currentRid({0, 1}), op(), compData(nullptr), valType(TypeInt),
+                  valLen(0), closed(false), isValNull(false) {
 
         };
 

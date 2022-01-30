@@ -426,12 +426,12 @@ namespace PeterDB {
         unsigned short endOff = 0;
         memcpy(&endOff, recordbuf + 2 * (loc + 1), sizeof(short));
         if (endOff == 0) {
-            char nullp = 0;
+            char nullp = 1;
             memcpy(data, &nullp, sizeof(char));
         } else {
             //find start offset: check whether field before is 0(indicate null), if yes, check the former one again
             unsigned startOff = 2 * (fieldNum + 1);
-            for (unsigned i = loc - 1; i >= 0; i--) {
+            for (int i = loc - 1; i >= 0; i--) {
                 unsigned off = 0;
                 memcpy(&off, recordbuf + 2 * (i + 1), sizeof(short));
                 if (off != 0) {
@@ -439,7 +439,7 @@ namespace PeterDB {
                     break;
                 }
             }
-            char nullp = 1;
+            char nullp = 0;
             memcpy(data, &nullp, sizeof(char));
             if (type == TypeVarChar) {
                 unsigned rlen = endOff - startOff;
@@ -455,6 +455,7 @@ namespace PeterDB {
         return RC::ok;
     }
 
+    //leave value be dealt by check function, value as null + len + data, the same as comp
     RC RecordBasedFileManager::scan(FileHandle &fileHandle, const std::vector<Attribute> &recordDescriptor,
                                     const std::string &conditionAttribute, const CompOp compOp, const void *value,
                                     const std::vector<std::string> &attributeNames,
@@ -475,25 +476,21 @@ namespace PeterDB {
                 break;
             }
         }
-//        for (int i = 0; i < attributeNames.size(); i++) {
-//            for (int j = 0; j < recordDescriptor.size(); j++) {
-//                if (attributeNames[i] == recordDescriptor[j].name) {
-//                    rbfm_ScanIterator.projAttrs.push_back(j);
-//                    break;
-//                }
-//            }
-//        }
-        if (compType == TypeReal || compType == TypeInt) {
+
+        char nullp = '\0';
+        memcpy(&nullp, value, sizeof(char));
+        if (nullp != '\0') {
+            memcpy(rbfm_ScanIterator.compData, value, 1);
+        } else if (compType == TypeReal || compType == TypeInt) {
             rbfm_ScanIterator.valLen = sizeof(int);
-            rbfm_ScanIterator.compData = new int;
-            memcpy(rbfm_ScanIterator.compData, value, sizeof(int));
+            rbfm_ScanIterator.compData = new char[sizeof(int) + 1];
+            memcpy(rbfm_ScanIterator.compData, value, sizeof(int) + 1);
         } else if (compType == TypeVarChar) {
             unsigned len = 0;
-            memcpy(&len, value, sizeof(int));
+            memcpy(&len, (char *) value + 1, sizeof(int));
             rbfm_ScanIterator.valLen = len;
-            rbfm_ScanIterator.compData = new char[len];
-            memcpy(rbfm_ScanIterator.compData, (char *) value + sizeof(int), len);
-
+            rbfm_ScanIterator.compData = new char[len + sizeof(int) + 1];
+            memcpy(rbfm_ScanIterator.compData, (char *) value, len + sizeof(int) + 1);
         }
 
         return RC::ok;
@@ -506,6 +503,7 @@ namespace PeterDB {
             return static_cast<RC>RBFM_EOF;
         }
         char *pageBuf = new char[PAGE_SIZE];
+        char *buffer = new char[PAGE_SIZE];
 
         for (unsigned p = currentRid.pageNum; p < fd.totalPage; p++) {
             currentRid.pageNum = p;
@@ -514,20 +512,25 @@ namespace PeterDB {
             recordNum = RecordBasedFileManager::getRecordNum(pageBuf);
 
             for (unsigned short s = currentRid.slotNum; s <= recordNum; s++) {
-                char *buffer = new char[PAGE_SIZE];
+
                 currentRid.slotNum = s;
                 RecordBasedFileManager::instance().readAttribute(fd, recordDescriptor, currentRid, compAttr, buffer);
                 char nullp = 0;
                 memcpy(&nullp, buffer, sizeof(char));
                 if (nullp == 0) {
                     //not null
-                    if (checkCondSatisfy(buffer + 1)) {
+                    if (checkCondSatisfy(buffer)) {
                         rid = {p, s};
                         //construct data from projAttr
                         unsigned resultLen = 0;
                         RecordBasedFileManager::instance().readProjAttr(fd, recordDescriptor, currentRid, projAttrs,
                                                                         data, resultLen);
 
+                        currentRid.slotNum++;
+
+                        delete[]buffer;
+                        delete[]pageBuf;
+                        return RC::ok;
                     }
                 } else {
                     //null value
@@ -537,6 +540,7 @@ namespace PeterDB {
         }
 
         delete[]pageBuf;
+        delete[]buffer;
         return static_cast<RC>RBFM_EOF;
     }
 
