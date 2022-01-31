@@ -137,8 +137,93 @@ namespace PeterDB {
                 max_table_id = table_id > max_table_id ? table_id : max_table_id;
             }
         }
+        delete[]data;
         return max_table_id;
     }
 
+    RC RelationManager::formRecordValue(const char *data, char *recordVal, AttrType type, unsigned len) {
 
+        if (data == nullptr) {
+            recordVal = nullptr;
+        } else {
+
+            if (type == TypeVarChar) {
+                memcpy(recordVal, &len, sizeof(int));
+                memcpy(recordVal + sizeof(int), data, len);
+            } else {
+                memcpy(recordVal, data, sizeof(int));
+            }
+        }
+        return RC::ok;
+    }
+
+    RC RelationManager::getTableId(const std::string &tableName,
+                                   unsigned int &tableId) {
+        FileHandle fd_table;
+        RC re = rbfm->openFile(tableCatalog, fd_table);
+        if (re != RC::ok) {
+            return re;
+        }
+        std::vector<Attribute> tableAttr;
+        formTableAttr(tableAttr);
+        char *record = new char[tableName.length() + 10];
+        formRecordValue(tableName.c_str(), record, TypeVarChar, tableName.length());
+        RBFM_ScanIterator iter;
+        rbfm->scan(fd_table, tableAttr, "table-name", EQ_OP,
+                   record, {"table-id"}, iter);
+
+        RID rid;
+        char *data = new char[10];
+        if (iter.getNextRecord(rid, data) == RC::ok) {
+            memcpy(&tableId, data + 1, sizeof(int));
+        } else {
+            rbfm->closeFile(fd_table);
+            delete[]record;
+            return (RC) RM_EOF;
+        }
+        rbfm->closeFile(fd_table);
+        delete[]record;
+        return RC::ok;
+    }
+
+    RC
+    RelationManager::getTableFile(const std::string &tableName, std::string &fileName) {
+        FileHandle fd_table;
+        RC re = rbfm->openFile(tableCatalog, fd_table);
+        if (re != RC::ok) {
+            return re;
+        }
+
+        std::vector<Attribute> tableAttr;
+        formTableAttr(tableAttr);
+        char *record = new char[tableName.length() + 10];
+        formRecordValue(tableName.c_str(), record, TypeVarChar, tableName.length());
+        RBFM_ScanIterator iter;
+        rbfm->scan(fd_table, tableAttr, "table-name", EQ_OP,
+                   record, {"file-name"}, iter);
+
+        RID rid;
+        char *data = new char[60];
+        char *file = new char[51];
+        unsigned len = 0;
+        if (iter.getNextRecord(rid, data) == RC::ok) {
+            memcpy(&len, data + 1, sizeof(int));
+            memcpy(file, data + 1 + sizeof(int), len);
+        } else {
+            rbfm->closeFile(fd_table);
+
+            delete[]data;
+            delete[]file;
+            delete[]record;
+            return (RC)RM_EOF;
+        }
+        file[len] = '\0';
+        fileName.assign(file);
+        rbfm->closeFile(fd_table);
+
+        delete[]data;
+        delete[]file;
+        delete[]record;
+        return RC::ok;
+    }
 }

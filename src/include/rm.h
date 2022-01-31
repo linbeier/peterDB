@@ -12,6 +12,8 @@ namespace PeterDB {
     // RM_ScanIterator is an iterator to go through tuples
     class RM_ScanIterator {
     public:
+        RBFM_ScanIterator *iter;
+
         RM_ScanIterator();
 
         ~RM_ScanIterator();
@@ -26,8 +28,8 @@ namespace PeterDB {
     class RelationManager {
     public:
         RecordBasedFileManager *rbfm;
-        FileHandle *fd_table;
-        FileHandle *fd_col;
+        std::string tableCatalog;
+        std::string columnsCatalog;
 
         static RelationManager &instance();
 
@@ -84,6 +86,13 @@ namespace PeterDB {
                                   char *data);
 
         unsigned getLastTableId(std::vector<Attribute> &descriptor, FileHandle &fd);
+
+        RC
+        getTableId(const std::string &tableName, unsigned &tableId);
+
+        RC formRecordValue(const char *data, char *recordVal, AttrType type, unsigned len);
+
+        RC getTableFile(const std::string &tableName, std::string &fileName);
 
     protected:
         RelationManager();                                                  // Prevent construction

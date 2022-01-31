@@ -98,9 +98,9 @@ namespace PeterDB {
     RC RecordBasedFileManager::readSlotInfo(const char *pageData, const RID &rid, unsigned short &offset,
                                             unsigned short &len) {
         char buf[2];
-        if (getRecordNum(pageData) < rid.slotNum) {
-            return RC::OOUT_SLOT;
-        }
+//        if (getRecordNum(pageData) < rid.slotNum) {
+//            return RC::OOUT_SLOT;
+//        }
         memcpy(buf, pageData + PAGE_SIZE - 4 * (rid.slotNum + 1), sizeof(short));
         offset = *((unsigned short *) buf);
 
@@ -453,8 +453,7 @@ namespace PeterDB {
         if (nullp != '\0') {
             isNull = true;
             len = 1;
-            recordVal = new char;
-            memcpy(recordVal, data, 1);
+            recordVal = nullptr;
         } else {
             if (valType == TypeVarChar) {
                 memcpy(&len, data + recordP, sizeof(int));
@@ -468,16 +467,18 @@ namespace PeterDB {
             }
         }
 
-        memcpy(&nullp, compData, 1);
-        if (nullp != '\0') {
+        if (compData == nullptr) {
             isNull = true;
             len = 1;
         }
-        char *compRealData = (char *) compData + recordP;
 
         switch (op) {
             case EQ_OP:
-                if (memcmp(recordVal, compRealData, len) == 0) {
+                if (compData == nullptr && recordVal == nullptr) {
+                    result = true;
+                } else if (compData == nullptr || recordVal == nullptr) {
+                    result = false;
+                } else if (memcmp(recordVal, compData, len) == 0) {
                     result = true;
                 } else {
                     result = false;
@@ -490,20 +491,20 @@ namespace PeterDB {
                     break;
                 }
                 if (valType == TypeInt) {
-                    if (*((int *) recordVal) < *((int *) compRealData)) {
+                    if (*((int *) recordVal) < *((int *) compData)) {
                         result = true;
                     } else {
                         result = false;
                     }
                 } else if (valType == TypeReal) {
-                    if (*((float *) recordVal) < *((float *) compRealData)) {
+                    if (*((float *) recordVal) < *((float *) compData)) {
                         result = true;
                     } else {
                         result = false;
                     }
                 } else if (valType == TypeVarChar) {
                     std::string recordStr(recordVal, len);
-                    std::string compStr((char *) compRealData, valLen);
+                    std::string compStr((char *) compData, valLen);
                     result = recordStr < compStr;
                 }
                 break;
@@ -513,20 +514,20 @@ namespace PeterDB {
                     break;
                 }
                 if (valType == TypeInt) {
-                    if (*((int *) recordVal) <= *((int *) compRealData)) {
+                    if (*((int *) recordVal) <= *((int *) compData)) {
                         result = true;
                     } else {
                         result = false;
                     }
                 } else if (valType == TypeReal) {
-                    if (*((float *) recordVal) <= *((float *) compRealData)) {
+                    if (*((float *) recordVal) <= *((float *) compData)) {
                         result = true;
                     } else {
                         result = false;
                     }
                 } else if (valType == TypeVarChar) {
                     std::string recordStr(recordVal, len);
-                    std::string compStr((char *) compRealData, valLen);
+                    std::string compStr((char *) compData, valLen);
                     result = recordStr <= compStr;
                 }
                 break;
@@ -536,20 +537,20 @@ namespace PeterDB {
                     break;
                 }
                 if (valType == TypeInt) {
-                    if (*((int *) recordVal) > *((int *) compRealData)) {
+                    if (*((int *) recordVal) > *((int *) compData)) {
                         result = true;
                     } else {
                         result = false;
                     }
                 } else if (valType == TypeReal) {
-                    if (*((float *) recordVal) > *((float *) compRealData)) {
+                    if (*((float *) recordVal) > *((float *) compData)) {
                         result = true;
                     } else {
                         result = false;
                     }
                 } else if (valType == TypeVarChar) {
                     std::string recordStr(recordVal, len);
-                    std::string compStr((char *) compRealData, valLen);
+                    std::string compStr((char *) compData, valLen);
                     result = recordStr > compStr;
                 }
                 break;
@@ -559,25 +560,29 @@ namespace PeterDB {
                     break;
                 }
                 if (valType == TypeInt) {
-                    if (*((int *) recordVal) >= *((int *) compRealData)) {
+                    if (*((int *) recordVal) >= *((int *) compData)) {
                         result = true;
                     } else {
                         result = false;
                     }
                 } else if (valType == TypeReal) {
-                    if (*((float *) recordVal) >= *((float *) compRealData)) {
+                    if (*((float *) recordVal) >= *((float *) compData)) {
                         result = true;
                     } else {
                         result = false;
                     }
                 } else if (valType == TypeVarChar) {
                     std::string recordStr(recordVal, len);
-                    std::string compStr((char *) compRealData, valLen);
+                    std::string compStr((char *) compData, valLen);
                     result = recordStr >= compStr;
                 }
                 break;
             case NE_OP:
-                if (memcmp(recordVal, compRealData, len) != 0) {
+                if (compData == nullptr && recordVal == nullptr) {
+                    result = false;
+                } else if (compData == nullptr || recordVal == nullptr) {
+                    result = true;
+                } else if (memcmp(recordVal, compData, len) != 0) {
                     result = true;
                 } else {
                     result = false;

@@ -467,7 +467,11 @@ namespace PeterDB {
         rbfm_ScanIterator.recordDescriptor = recordDescriptor;
         //start rid
         rbfm_ScanIterator.currentRid = RID{0, 1};
+        //initialize
         AttrType compType = TypeInt;
+        rbfm_ScanIterator.compAttr = recordDescriptor[0].name;
+        rbfm_ScanIterator.valType = compType;
+
         for (int i = 0; i < recordDescriptor.size(); i++) {
             if (recordDescriptor[i].name == conditionAttribute) {
                 rbfm_ScanIterator.compAttr = conditionAttribute;
@@ -477,20 +481,22 @@ namespace PeterDB {
             }
         }
 
-        char nullp = '\0';
-        memcpy(&nullp, value, sizeof(char));
-        if (nullp != '\0') {
-            memcpy(rbfm_ScanIterator.compData, value, 1);
+        if (value == nullptr) {
+            rbfm_ScanIterator.compData = nullptr;
+            rbfm_ScanIterator.valLen = 0;
+
         } else if (compType == TypeReal || compType == TypeInt) {
             rbfm_ScanIterator.valLen = sizeof(int);
-            rbfm_ScanIterator.compData = new char[sizeof(int) + 1];
-            memcpy(rbfm_ScanIterator.compData, value, sizeof(int) + 1);
+            rbfm_ScanIterator.compData = new char[sizeof(int)];
+            memcpy(rbfm_ScanIterator.compData, value, sizeof(int));
+
         } else if (compType == TypeVarChar) {
             unsigned len = 0;
-            memcpy(&len, (char *) value + 1, sizeof(int));
+            memcpy(&len, (char *) value, sizeof(int));
             rbfm_ScanIterator.valLen = len;
-            rbfm_ScanIterator.compData = new char[len + sizeof(int) + 1];
-            memcpy(rbfm_ScanIterator.compData, (char *) value, len + sizeof(int) + 1);
+            rbfm_ScanIterator.compData = new char[len];
+            memcpy(rbfm_ScanIterator.compData, (char *) value + sizeof(int), len);
+
         }
 
         return RC::ok;
@@ -515,27 +521,21 @@ namespace PeterDB {
 
                 currentRid.slotNum = s;
                 RecordBasedFileManager::instance().readAttribute(fd, recordDescriptor, currentRid, compAttr, buffer);
-                char nullp = 0;
-                memcpy(&nullp, buffer, sizeof(char));
-                if (nullp == 0) {
-                    //not null
-                    if (checkCondSatisfy(buffer)) {
-                        rid = {p, s};
-                        //construct data from projAttr
-                        unsigned resultLen = 0;
-                        RecordBasedFileManager::instance().readProjAttr(fd, recordDescriptor, currentRid, projAttrs,
-                                                                        data, resultLen);
 
-                        currentRid.slotNum++;
+                if (checkCondSatisfy(buffer)) {
+                    rid = {p, s};
+                    //construct data from projAttr
+                    unsigned resultLen = 0;
+                    RecordBasedFileManager::instance().readProjAttr(fd, recordDescriptor, currentRid, projAttrs,
+                                                                    data, resultLen);
 
-                        delete[]buffer;
-                        delete[]pageBuf;
-                        return RC::ok;
-                    }
-                } else {
-                    //null value
-                    continue;
+                    currentRid.slotNum++;
+
+                    delete[]buffer;
+                    delete[]pageBuf;
+                    return RC::ok;
                 }
+
             }
         }
 
