@@ -298,6 +298,7 @@ namespace PeterDB {
             tempAttr.length = len;
 
             attrs.push_back(tempAttr);
+            delete[]name;
         }
 
         rbfm->closeFile(fd_col);
@@ -428,7 +429,7 @@ namespace PeterDB {
         if (re != RC::ok) {
             return re;
         }
-        rbfm->closeFile(fd);
+//        rbfm->closeFile(fd);
         return RC::ok;
     }
 

@@ -87,6 +87,7 @@ namespace PeterDB {
                                                            fileHandle.freeSpaceList[rid.pageNum]);
                     inserted = true;
                     rid.slotNum = slotnum;
+                    break;
                 }
             }
 
@@ -179,14 +180,17 @@ namespace PeterDB {
 
         //no records after current record
         if (rid.slotNum >= recordNum) {
-            markDeleteRecord(pageData, rid);
+            markDeleteRecord(fileHandle, pageData, rid);
             fileHandle.writePage(rid.pageNum, pageData);
 
             delete[]pageData;
             return RC::ok;
         }
 
-        for (unsigned short i = rid.slotNum + 1; i <= recordNum; ++i) {
+        //convert to all slot offset that larger than current rid
+        std::vector<unsigned short> followedSlotNum;
+        getFollowedSlots(pageData, rid, followedSlotNum);
+        for (auto i: followedSlotNum) {
             RID r = {rid.pageNum, i};
 
             if (!checkRecordDeleted(pageData, r)) {
@@ -204,7 +208,7 @@ namespace PeterDB {
             }
         }
 
-        markDeleteRecord(pageData, rid);
+        markDeleteRecord(fileHandle, pageData, rid);
         memcpy(pageData + recordOffset, pageData + moveOffset, moveLen);
         fileHandle.writePage(rid.pageNum, pageData);
 
@@ -295,14 +299,14 @@ namespace PeterDB {
         if (recordLen < TOMBSTONE_SIZE) {
             recordLen = TOMBSTONE_SIZE;
         }
-        unsigned freeSpace = getFreeSpace(pageData);
+        unsigned freeSpace = getFreeSpace(fileHandle, realRid.pageNum);
         unsigned recordNum = getRecordNum(pageData);
 
         unsigned short oriRecordOff = 0, oriRecordLen = 0;
         readSlotInfo(pageData, realRid, oriRecordOff, oriRecordLen);
         unsigned short followedLen = getRecordOffset(pageData) - oriRecordOff - oriRecordLen;
 
-        //followed records shift left
+        //followed records shift left, record shrinks
         if (recordLen < oriRecordLen) {
 
             unsigned short diff = oriRecordLen - recordLen;
@@ -313,7 +317,14 @@ namespace PeterDB {
 
             unsigned short offset = oriRecordOff, len = recordLen;
             updateSlotInfo(pageData, {realRid.pageNum, realRid.slotNum}, offset, len);
-            for (unsigned short i = realRid.slotNum + 1; i <= recordNum; i++) {
+
+            unsigned short freeSpace = fileHandle.freeSpaceList[realRid.pageNum];
+            freeSpace += diff;
+            changeFreeSpace(fileHandle, realRid, pageData, freeSpace);
+
+            std::vector<unsigned short> followedSlotNum;
+            getFollowedSlots(pageData, realRid, followedSlotNum);
+            for (auto i: followedSlotNum) {
 
                 readSlotInfo(pageData, {realRid.pageNum, i}, offset, len);
                 offset -= diff;
@@ -328,7 +339,7 @@ namespace PeterDB {
         } else {
 
             unsigned short diff = recordLen - oriRecordLen;
-            //no enough free space
+            //no enough free space, find another page to insert record
             if (diff > freeSpace) {
                 RID insertR = {};
                 //change record to tombstone, all records followed shift left
@@ -336,7 +347,7 @@ namespace PeterDB {
 
                 //write tombstone
                 char *tombstone = new char[TOMBSTONE_SIZE];
-                unsigned short flag = 128;
+                char flag = 128;
                 memcpy(tombstone, &flag, sizeof(char));
                 memcpy(tombstone + 1, &insertR.pageNum, sizeof(int));
                 memcpy(tombstone + sizeof(int) + 1, &insertR.slotNum, sizeof(short));
@@ -353,7 +364,14 @@ namespace PeterDB {
                     updateSlotInfo(pageData, realRid, oriRecordOff, 32768 + TOMBSTONE_SIZE);
                 }
 
-                for (unsigned short i = realRid.slotNum + 1; i <= recordNum; i++) {
+                //update free space
+                unsigned short freeSpace = fileHandle.freeSpaceList[realRid.pageNum];
+                freeSpace += oriRecordLen - TOMBSTONE_SIZE;
+                changeFreeSpace(fileHandle, realRid, pageData, freeSpace);
+
+                std::vector<unsigned short> followedSlotNum;
+                getFollowedSlots(pageData, realRid, followedSlotNum);
+                for (auto i: followedSlotNum) {
                     unsigned short offset = 0, len = 0;
                     readSlotInfo(pageData, {realRid.pageNum, i}, offset, len);
                     offset -= oriRecordLen - TOMBSTONE_SIZE;
@@ -369,7 +387,13 @@ namespace PeterDB {
                 memcpy(pageData + oriRecordOff + recordLen, buffer, followedLen);
 
                 updateSlotInfo(pageData, realRid, oriRecordOff, recordLen);
-                for (unsigned short i = realRid.slotNum + 1; i <= recordNum; i++) {
+                unsigned short freeSpace = fileHandle.freeSpaceList[realRid.pageNum];
+                freeSpace -= diff;
+                changeFreeSpace(fileHandle, realRid, pageData, freeSpace);
+
+                std::vector<unsigned short> followedSlotNum;
+                getFollowedSlots(pageData, realRid, followedSlotNum);
+                for (auto i: followedSlotNum) {
                     unsigned short offset = 0, len = 0;
                     readSlotInfo(pageData, {realRid.pageNum, i}, offset, len);
                     offset += diff;
@@ -520,6 +544,10 @@ namespace PeterDB {
             for (unsigned short s = currentRid.slotNum; s <= recordNum; s++) {
 
                 currentRid.slotNum = s;
+                //check if deleted
+                if (RecordBasedFileManager::instance().checkRecordDeleted(pageBuf, currentRid)) {
+                    continue;
+                }
                 RecordBasedFileManager::instance().readAttribute(fd, recordDescriptor, currentRid, compAttr, buffer);
 
                 if (checkCondSatisfy(buffer)) {
@@ -545,6 +573,7 @@ namespace PeterDB {
     }
 
     RC RBFM_ScanIterator::close() {
+        RecordBasedFileManager::instance().closeFile(fd);
         closed = true;
         return RC::ok;
     }

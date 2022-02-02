@@ -179,10 +179,12 @@ namespace PeterDB {
         } else {
             rbfm->closeFile(fd_table);
             delete[]record;
+            delete[]data;
             return (RC) RM_EOF;
         }
         rbfm->closeFile(fd_table);
         delete[]record;
+        delete[]data;
         return RC::ok;
     }
 
@@ -215,7 +217,7 @@ namespace PeterDB {
             delete[]data;
             delete[]file;
             delete[]record;
-            return (RC)RM_EOF;
+            return (RC) RM_EOF;
         }
         file[len] = '\0';
         fileName.assign(file);

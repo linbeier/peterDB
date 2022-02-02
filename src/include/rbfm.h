@@ -165,7 +165,7 @@ namespace PeterDB {
         // tool functions
         static RC insertNewRecordPage(FileHandle &fileHandle);                        // Insert a new record-based page
 
-        static unsigned short getFreeSpace(const char *pageBuffer);
+        static unsigned short getFreeSpace(FileHandle &fileHandle, unsigned pageNum);
 
         static unsigned short getRecordNum(const char *pageBuffer);
 
@@ -178,7 +178,7 @@ namespace PeterDB {
                            unsigned short &len);
 
         unsigned short
-        writeSlotInfo(char *pageData, unsigned short offset, unsigned short len, unsigned short &freeSpace);
+        writeSlotInfo(char *pageData, unsigned short offset, unsigned short len, short &freeSpace);
 
         RC readSlotInfo(const char *pageData, const RID &rid, unsigned short &offset, unsigned short &len);
 
@@ -187,9 +187,9 @@ namespace PeterDB {
         //convert on-page record  to pass in data
         RC deconstructRecord(const std::vector<Attribute> &recordDescriptor, const char *data, char *&record);
 
-        RC markDeleteRecord(char *pageData, const RID &rid);
+        RC markDeleteRecord(FileHandle &fileHandle, char *pageData, const RID &rid);
 
-        RC insertConstructedRecord(FileHandle &fileHandle, const char *record, const unsigned &recordLen, RID &rid);
+        RC insertConstructedRecord(FileHandle &fileHandle, const char *record, const int &recordLen, RID &rid);
 
         bool checkRecordDeleted(const char *pageData, const RID &rid);
 
@@ -201,6 +201,10 @@ namespace PeterDB {
 
         RC readProjAttr(FileHandle &fileHandle, const std::vector<Attribute> &recordDescriptor, const RID &rid,
                         const std::vector<std::string> &projAttr, void *data, unsigned &len);
+
+        RC getFollowedSlots(const char *pageData, const RID &curRid, std::vector<unsigned short> &followRids);
+
+        RC changeFreeSpace(FileHandle &fileHandle, const RID &rid, char *pageData, const unsigned short freeSpace);
 
     protected:
         RecordBasedFileManager();                                                   // Prevent construction

@@ -61,7 +61,7 @@ namespace PeterDB {
         unsigned writePageCounter;
         unsigned appendPageCounter;
         unsigned totalPage;
-        std::vector<unsigned short> freeSpaceList;
+        std::vector<short> freeSpaceList;
         FILE *fd;
         FILE *fd_aux;
 

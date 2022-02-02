@@ -3,6 +3,8 @@
 //
 
 #include "src/include/rbfm.h"
+#include "unordered_map"
+#include "algorithm"
 
 namespace PeterDB {
 
@@ -12,18 +14,18 @@ namespace PeterDB {
         unsigned short free = 4092;
         unsigned short reco = 0;
 
-        memcpy(pagebuffer + 4092 * sizeof(char), &reco, 2 * sizeof(char));
-        memcpy(pagebuffer + 4094 * sizeof(char), &free, 2 * sizeof(char));
+        memcpy(pagebuffer + 4092 * sizeof(char), &reco, sizeof(short));
+        memcpy(pagebuffer + 4094 * sizeof(char), &free, sizeof(short));
 
         fileHandle.freeSpaceList.push_back(4092);
         return fileHandle.appendPage(pagebuffer);
     }
 
-    unsigned short RecordBasedFileManager::getFreeSpace(const char *pagebuffer) {
-        char freespace[2];
-        memcpy(freespace, pagebuffer + 4094, 2 * sizeof(char));
-        unsigned short result = *((unsigned short *) freespace);
-        return result;
+    unsigned short RecordBasedFileManager::getFreeSpace(FileHandle &fileHandle, unsigned pageNum) {
+//        char freespace[2];
+//        memcpy(freespace, pagebuffer + 4094, 2 * sizeof(char));
+//        unsigned short result = *((unsigned short *) freespace);
+        return fileHandle.freeSpaceList[pageNum];
     }
 
     unsigned short RecordBasedFileManager::getRecordNum(const char *pagebuffer) {
@@ -55,41 +57,44 @@ namespace PeterDB {
                 maxoffset = offset;
                 memcpy(buf, pagebuffer + PAGE_SIZE - 4 * (i + 1) + 2, sizeof(short));
                 len = *((short *) buf);
+                if (len >= 32768) {
+                    len -= 32768;
+                }
             }
         }
-//        memcpy(buf, pagebuffer + PAGE_SIZE - 4 * (recordnum + 1), sizeof(short));
-//        unsigned short offset = *((short *) buf);
-//        memcpy(buf, pagebuffer + PAGE_SIZE - 4 * (recordnum + 1) + 2, sizeof(short));
-//        unsigned short len = *((short *) buf);
+
         return maxoffset + len;
     }
 
     //append slot info, slot number start from 1
     unsigned short RecordBasedFileManager::writeSlotInfo(char *pageData, unsigned short offset, unsigned short len,
-                                                         unsigned short &freeSpace) {
+                                                         short &freeSpace) {
         char buffer[4];
         unsigned short recordNum = getRecordNum(pageData);
 
         unsigned short slotNum = 1;
+        bool usedSlot = false;
         for (slotNum = 1; slotNum <= recordNum; slotNum++) {
             //temporally construct rid, pageNum is not used
             RID r{0, slotNum};
             if (checkRecordDeleted(pageData, r)) {
+                usedSlot = true;
                 break;
             }
         }
-        recordNum++;
-        if (slotNum == recordNum)freeSpace -= len + 4;
+
+        if (!usedSlot)freeSpace -= len + 4;
         else freeSpace -= len;
 
         memcpy(buffer, &offset, sizeof(short));
-        memcpy(buffer + 2, &len, sizeof(short));
+        memcpy(buffer + sizeof(short), &len, sizeof(short));
+        recordNum++;
 
         //write slot
-        memcpy(pageData + PAGE_SIZE - 4 * (slotNum + 1), buffer, 4);
+        memcpy(pageData + PAGE_SIZE - 2 * sizeof(short) * (slotNum + 1), buffer, 2 * sizeof(short));
         //write recordnum and freespace
-        memcpy(pageData + PAGE_SIZE - 4, &recordNum, 2);
-        memcpy(pageData + PAGE_SIZE - 2, &freeSpace, 2);
+        memcpy(pageData + PAGE_SIZE - 4, &recordNum, sizeof(short));
+        memcpy(pageData + PAGE_SIZE - 2, &freeSpace, sizeof(short));
 
         return slotNum;
     }
@@ -115,13 +120,20 @@ namespace PeterDB {
     RC RecordBasedFileManager::updateSlotInfo(const char *pageData, const RID &rid, unsigned short offset,
                                               unsigned short len) {
 
-        if (getRecordNum(pageData) < rid.slotNum) {
-            return RC::OOUT_SLOT;
-        }
+//        if (getRecordNum(pageData) < rid.slotNum) {
+//            return RC::OOUT_SLOT;
+//        }
         memcpy((void *) (pageData + PAGE_SIZE - 4 * (rid.slotNum + 1)), (void *) &offset, sizeof(short));
 
         memcpy((void *) (pageData + PAGE_SIZE - 4 * (rid.slotNum + 1) + 2), (void *) &len, sizeof(short));
 
+        return RC::ok;
+    }
+
+    RC RecordBasedFileManager::changeFreeSpace(FileHandle &fileHandle, const RID &rid, char *pageData,
+                                               const unsigned short freeSpace) {
+        fileHandle.freeSpaceList[rid.pageNum] = freeSpace;
+        memcpy(pageData + PAGE_SIZE - 2, &freeSpace, sizeof(short));
         return RC::ok;
     }
 
@@ -220,7 +232,7 @@ namespace PeterDB {
         return RC::ok;
     }
 
-    RC RecordBasedFileManager::markDeleteRecord(char *pageData, const RID &rid) {
+    RC RecordBasedFileManager::markDeleteRecord(FileHandle &fileHandle, char *pageData, const RID &rid) {
 
         unsigned short offset = 0, len = 0;
         readSlotInfo(pageData, rid, offset, len);
@@ -231,10 +243,11 @@ namespace PeterDB {
         updateSlotInfo(pageData, rid, coffset, clen);
 
         unsigned short recordNum = getRecordNum(pageData);
-        unsigned short freeSpace = getFreeSpace(pageData);
+        unsigned short freeSpace = getFreeSpace(fileHandle, rid.pageNum);
 
         recordNum--;
         freeSpace += len;
+        fileHandle.freeSpaceList[rid.pageNum] += len;
 
         //write recordnum and freespace
         memcpy(pageData + PAGE_SIZE - 4, &recordNum, 2);
@@ -260,8 +273,7 @@ namespace PeterDB {
         unsigned short offset = *((unsigned short *) buf);
         char singlebuf;
         memcpy(&singlebuf, pageData + offset, sizeof(char));
-        unsigned short flag = *((unsigned short *) &singlebuf);
-        if (flag == 128)return true;
+        if (singlebuf == 128)return true;
         return false;
     }
 
@@ -296,7 +308,7 @@ namespace PeterDB {
 
     //insert records that have been constructed, used by updateRecords
     RC RecordBasedFileManager::insertConstructedRecord(FileHandle &fileHandle, const char *recordbuf,
-                                                       const unsigned int &buflen, RID &rid) {
+                                                       const int &buflen, RID &rid) {
         //padding record to 6 bytes, at least 6 bytes to store a tombstone, otherwise manager need to shift right when
         //record change to tombstone
 
@@ -308,7 +320,7 @@ namespace PeterDB {
 
         char pagebuffer[PAGE_SIZE];
         //check which page have enough free space, start from last page
-        if (buflen <= fileHandle.freeSpaceList.at(totalpage - 1) - 4) {
+        if (buflen <= (short) (fileHandle.freeSpaceList[totalpage - 1] - 4)) {
 
             fileHandle.readPage(totalpage - 1, pagebuffer);
             unsigned short offset = getRecordOffset(pagebuffer);
@@ -324,7 +336,7 @@ namespace PeterDB {
 
             bool inserted = false;
             for (int i = 0; i < fileHandle.totalPage - 1; i++) {
-                if (buflen <= fileHandle.freeSpaceList[i] - 4) {
+                if (buflen <= (short) (fileHandle.freeSpaceList[i] - 4)) {
 
                     fileHandle.readPage(i, pagebuffer);
                     unsigned short offset = getRecordOffset(pagebuffer);
@@ -335,6 +347,7 @@ namespace PeterDB {
                                                            fileHandle.freeSpaceList[rid.pageNum]);
                     inserted = true;
                     rid.slotNum = slotnum;
+                    break;
                 }
             }
 
@@ -598,5 +611,35 @@ namespace PeterDB {
         return false;
     }
 
+    RC RecordBasedFileManager::getFollowedSlots(const char *pageData, const RID &curRid,
+                                                std::vector<unsigned short> &followRids) {
+        unsigned recordNum = getRecordNum(pageData);
+        std::vector<std::pair<unsigned, unsigned >> pair_vec;
+        if (recordNum == 0)return RC::ok;
+
+        unsigned curOff = 0;
+        memcpy(&curOff, pageData + PAGE_SIZE - 2 * sizeof(short) * (curRid.slotNum + 1), sizeof(short));
+
+        for (unsigned i = 1; i <= recordNum; i++) {
+            unsigned offset = 0;
+            memcpy(&offset, pageData + PAGE_SIZE - 2 * sizeof(short) * (i + 1), sizeof(short));
+            pair_vec.emplace_back(offset, i);
+        }
+        std::sort(pair_vec.begin(), pair_vec.end(),
+                  [](const std::pair<unsigned, unsigned> &p1, const std::pair<unsigned, unsigned> &p2) {
+                      return p1.first < p2.first;
+                  });
+        auto iter = std::lower_bound(pair_vec.begin(), pair_vec.end(), std::pair<unsigned, unsigned>{curOff, 0},
+                                     [](const std::pair<unsigned, unsigned> &p1,
+                                        const std::pair<unsigned, unsigned> &p2) {
+                                         return p1.first < p2.first;
+                                     });
+        iter++;
+        while (iter != pair_vec.end()) {
+            followRids.push_back(iter->second);
+            iter++;
+        }
+        return RC::ok;
+    }
 
 }
