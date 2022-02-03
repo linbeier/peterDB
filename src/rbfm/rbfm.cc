@@ -179,7 +179,9 @@ namespace PeterDB {
         moveOffset = recordOffset + recordLen;
 
         //no records after current record
-        if (rid.slotNum >= recordNum) {
+        //todo leaves holes
+        unsigned short maxSlot = getMaxSkotNum(pageData, recordNum);
+        if (rid.slotNum >= maxSlot) {
             markDeleteRecord(fileHandle, pageData, rid);
             fileHandle.writePage(rid.pageNum, pageData);
 
@@ -196,11 +198,11 @@ namespace PeterDB {
             if (!checkRecordDeleted(pageData, r)) {
                 unsigned short offset = 0, len = 0;
                 readSlotInfo(pageData, r, offset, len);
-                if (len >= 32768) {
-                    len -= 32768;
-                }
+//                if (len >= 32768) {
+//                    len -= 32768;
+//                }
                 offset -= recordLen;
-                moveLen += len;
+                moveLen += len >= 32768 ? len - 32768 : len;
                 updateSlotInfo(pageData, r, offset, len);
 
             } else {
@@ -437,9 +439,14 @@ namespace PeterDB {
         }
         if (realRid.pageNum != rid.pageNum) {
             fileHandle.readPage(realRid.pageNum, pagebuffer);
+
+            if (checkRecordDeleted(pagebuffer, rid)) {
+                delete[]pagebuffer;
+                return RC::RECORD_HAS_DEL;
+            }
         }
         unsigned short offset = 0, len = 0;
-        readSlotInfo(pagebuffer, rid, offset, len);
+        readSlotInfo(pagebuffer, realRid, offset, len);
         if (len >= 32768) {
             len -= 32768;
         }
@@ -492,9 +499,9 @@ namespace PeterDB {
         //start rid
         rbfm_ScanIterator.currentRid = RID{0, 1};
         //initialize
-        AttrType compType = TypeInt;
         rbfm_ScanIterator.compAttr = recordDescriptor[0].name;
-        rbfm_ScanIterator.valType = compType;
+        rbfm_ScanIterator.valType = recordDescriptor[0].type;
+        AttrType compType = rbfm_ScanIterator.valType;
 
         for (int i = 0; i < recordDescriptor.size(); i++) {
             if (recordDescriptor[i].name == conditionAttribute) {
@@ -535,29 +542,37 @@ namespace PeterDB {
         char *pageBuf = new char[PAGE_SIZE];
         char *buffer = new char[PAGE_SIZE];
 
-        for (unsigned p = currentRid.pageNum; p < fd.totalPage; p++) {
-            currentRid.pageNum = p;
+        for (; currentRid.pageNum < fd.totalPage; currentRid.pageNum++) {
             fd.readPage(currentRid.pageNum, pageBuf);
             unsigned short recordNum = 0;
             recordNum = RecordBasedFileManager::getRecordNum(pageBuf);
 
-            for (unsigned short s = currentRid.slotNum; s <= recordNum; s++) {
+            //todo 2 loop counter, one for counter slot, another for stop loop when actual counter bigger than recordNum
+            for (; actualCounter <= recordNum; currentRid.slotNum++) {
 
-                currentRid.slotNum = s;
                 //check if deleted
                 if (RecordBasedFileManager::instance().checkRecordDeleted(pageBuf, currentRid)) {
                     continue;
                 }
+                if (RecordBasedFileManager::instance().checkInternalRid(pageBuf, currentRid)) {
+                    continue;
+                }
+                actualCounter++;
+
+                //todo efficiency, read whole record for check and project
                 RecordBasedFileManager::instance().readAttribute(fd, recordDescriptor, currentRid, compAttr, buffer);
 
                 if (checkCondSatisfy(buffer)) {
-                    rid = {p, s};
+                    rid = {currentRid.pageNum, currentRid.slotNum};
                     //construct data from projAttr
                     unsigned resultLen = 0;
-                    RecordBasedFileManager::instance().readProjAttr(fd, recordDescriptor, currentRid, projAttrs,
-                                                                    data, resultLen);
-
+                    RC re = RecordBasedFileManager::instance().readProjAttr(fd, recordDescriptor, currentRid, projAttrs,
+                                                                            data, resultLen);
                     currentRid.slotNum++;
+
+                    if (re != RC::ok) {
+                        continue;
+                    }
 
                     delete[]buffer;
                     delete[]pageBuf;
@@ -565,6 +580,8 @@ namespace PeterDB {
                 }
 
             }
+            actualCounter = 1;
+            currentRid.slotNum = 1;
         }
 
         delete[]pageBuf;

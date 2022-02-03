@@ -147,7 +147,11 @@ namespace PeterDB {
         totalPage = 0;
     }
 
-    FileHandle::~FileHandle() = default;
+    FileHandle::~FileHandle() {
+//        if(fd != nullptr && fd_aux != nullptr){
+//            fclose(fd)
+//        }
+    }
 
     RC FileHandle::readPage(PageNum pageNum, void *data) {
         if (fd == nullptr) {

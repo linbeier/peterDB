@@ -204,6 +204,9 @@ namespace PeterDB {
     }
 
     RC RelationManager::deleteTable(const std::string &tableName) {
+        if (tableName == tableCatalog || tableName == columnsCatalog) {
+            return RC::REMV_FILE_FAIL;
+        }
         FileHandle fd_table;
         FileHandle fd_col;
         RC re = rbfm->openFile(tableCatalog, fd_table);
@@ -429,15 +432,18 @@ namespace PeterDB {
         if (re != RC::ok) {
             return re;
         }
-//        rbfm->closeFile(fd);
+
         return RC::ok;
     }
 
-    RM_ScanIterator::RM_ScanIterator() = default;
+    RM_ScanIterator::RM_ScanIterator() : iter(nullptr) {
+
+    }
 
     RM_ScanIterator::~RM_ScanIterator() {
         if (iter != nullptr) {
             delete iter;
+            iter = nullptr;
         }
     }
 
@@ -455,6 +461,8 @@ namespace PeterDB {
             if (re != RC::ok) {
                 return re;
             }
+            delete iter;
+            iter = nullptr;
         }
         return RC::ok;
     }

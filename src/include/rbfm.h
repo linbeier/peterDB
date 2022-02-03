@@ -64,6 +64,7 @@ namespace PeterDB {
         std::vector<Attribute> recordDescriptor;
         std::vector<std::string> projAttrs;
 
+        unsigned actualCounter;
         RID currentRid;
         AttrType valType;
         unsigned valLen;
@@ -74,7 +75,7 @@ namespace PeterDB {
 
         RBFM_ScanIterator()
                 : fd(), currentRid({0, 1}), op(), compData(nullptr), valType(TypeInt),
-                  valLen(0), closed(false), isValNull(false) {
+                  valLen(0), closed(false), isValNull(false), actualCounter(1) {
 
         };
 
@@ -205,6 +206,10 @@ namespace PeterDB {
         RC getFollowedSlots(const char *pageData, const RID &curRid, std::vector<unsigned short> &followRids);
 
         RC changeFreeSpace(FileHandle &fileHandle, const RID &rid, char *pageData, const unsigned short freeSpace);
+
+        bool checkInternalRid(char *pageData, const RID &rid);
+
+        unsigned short getMaxSkotNum(const char *pageData, unsigned short recordNum);
 
     protected:
         RecordBasedFileManager();                                                   // Prevent construction

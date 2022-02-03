@@ -157,6 +157,7 @@ namespace PeterDB {
         return RC::ok;
     }
 
+    //todo efficiency maintain fd_table, fd_col in rm class
     RC RelationManager::getTableId(const std::string &tableName,
                                    unsigned int &tableId) {
         FileHandle fd_table;

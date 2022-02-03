@@ -28,6 +28,7 @@ namespace PeterDB {
     class RelationManager {
     public:
         RecordBasedFileManager *rbfm;
+
         std::string tableCatalog;
         std::string columnsCatalog;
 

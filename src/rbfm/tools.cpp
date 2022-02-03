@@ -28,6 +28,17 @@ namespace PeterDB {
         return fileHandle.freeSpaceList[pageNum];
     }
 
+    unsigned short RecordBasedFileManager::getMaxSkotNum(const char *pageData, unsigned short recordNum) {
+        unsigned short slotCounter = 0;
+        for (unsigned i = 1; i <= recordNum; i++) {
+            slotCounter++;
+            if (checkRecordDeleted(pageData, {0, slotCounter})) {
+                i--;
+            }
+        }
+        return slotCounter;
+    }
+
     unsigned short RecordBasedFileManager::getRecordNum(const char *pagebuffer) {
         char recordnumbuf[2];
         memcpy(recordnumbuf, pagebuffer + 4092, 2 * sizeof(char));
@@ -50,7 +61,8 @@ namespace PeterDB {
 
         char buf[2];
         unsigned short maxoffset = 0, len = 0;
-        for (int i = 1; i <= recordnum; i++) {
+        unsigned short maxSlot = getMaxSkotNum(pagebuffer, recordnum);
+        for (int i = 1; i <= maxSlot; i++) {
             memcpy(buf, pagebuffer + PAGE_SIZE - 4 * (i + 1), sizeof(short));
             unsigned short offset = *((short *) buf);
             if (offset >= maxoffset) {
@@ -368,16 +380,19 @@ namespace PeterDB {
         return RC::ok;
     }
 
+    //ensure that rid is not deleted or is internal
     RC RecordBasedFileManager::readProjAttr(FileHandle &fileHandle, const std::vector<Attribute> &recordDescriptor,
                                             const RID &rid, const std::vector<std::string> &projAttr, void *data,
                                             unsigned &rlen) {
-        unsigned fieldNum = recordDescriptor.size();
+        unsigned dataFieldNum = projAttr.size();
         //field num convert to null indicator
-        std::vector<char> nullIndic(fieldNum / 8 + (fieldNum % 8 == 0 ? 0 : 1), 0);
+        std::vector<char> nullIndic(dataFieldNum / 8 + (dataFieldNum % 8 == 0 ? 0 : 1), 0);
         //pointer of current record
-        unsigned short recordpointer = nullIndic.size();
+        unsigned short dataPointer = nullIndic.size();
+
         std::vector<unsigned> loc;
         std::vector<AttrType> type;
+
         for (int p = 0; p < projAttr.size(); p++) {
             for (int i = 0; i < recordDescriptor.size(); i++) {
                 if (recordDescriptor[i].name == projAttr[p]) {
@@ -391,19 +406,25 @@ namespace PeterDB {
         //read record
         char *pagebuffer = new char[PAGE_SIZE];
         fileHandle.readPage(rid.pageNum, pagebuffer);
-        if (checkRecordDeleted(pagebuffer, rid)) {
-            delete[]pagebuffer;
-            return RC::RECORD_HAS_DEL;
-        }
+//        if (checkRecordDeleted(pagebuffer, rid)) {
+//            delete[]pagebuffer;
+//            return RC::RECORD_HAS_DEL;
+//        }
         RID realRid = {rid.pageNum, rid.slotNum};
         if (checkTombstone(pagebuffer, rid)) {
             accessRealRecord(fileHandle, rid, realRid);
         }
         if (realRid.pageNum != rid.pageNum) {
             fileHandle.readPage(realRid.pageNum, pagebuffer);
+
+            if (checkRecordDeleted(pagebuffer, realRid)) {
+                delete[]pagebuffer;
+                return RC::RECORD_HAS_DEL;
+            }
         }
+
         unsigned short offset = 0, len = 0;
-        readSlotInfo(pagebuffer, rid, offset, len);
+        readSlotInfo(pagebuffer, realRid, offset, len);
         if (len >= 32768) {
             len -= 32768;
         }
@@ -419,7 +440,7 @@ namespace PeterDB {
                 nullIndic[p / 8] = nullIndic[p / 8] | (1 << (7 - (p % 8)));
             } else {
                 //find start offset: check whether field before is 0(indicate null), if yes, check the former one again
-                unsigned startOff = 2 * (fieldNum + 1);
+                unsigned startOff = 2 * (recordDescriptor.size() + 1);
                 for (int i = loc[p] - 1; i >= 0; i--) {
                     unsigned off = 0;
                     memcpy(&off, recordbuf + 2 * (i + 1), sizeof(short));
@@ -431,13 +452,13 @@ namespace PeterDB {
 
                 if (type[p] == TypeVarChar) {
                     unsigned totalLen = endOff - startOff;
-                    memcpy((char *) data + recordpointer, &totalLen, sizeof(int));
-                    recordpointer += sizeof(int);
-                    memcpy((char *) data + recordpointer, recordbuf + startOff, totalLen);
-                    recordpointer += totalLen;
+                    memcpy((char *) data + dataPointer, &totalLen, sizeof(int));
+                    dataPointer += sizeof(int);
+                    memcpy((char *) data + dataPointer, recordbuf + startOff, totalLen);
+                    dataPointer += totalLen;
                 } else {
-                    memcpy((char *) data + recordpointer, recordbuf + startOff, endOff - startOff);
-                    recordpointer += sizeof(int);
+                    memcpy((char *) data + dataPointer, recordbuf + startOff, endOff - startOff);
+                    dataPointer += sizeof(int);
                 }
             }
         }
@@ -445,7 +466,7 @@ namespace PeterDB {
         for (int i = 0; i < nullIndic.size(); ++i) {
             memcpy((char *) data + i, &nullIndic[i], sizeof(char));
         }
-        rlen = recordpointer;
+        rlen = dataPointer;
 
         delete[]pagebuffer;
         delete[]recordbuf;
@@ -485,6 +506,7 @@ namespace PeterDB {
             len = 1;
         }
 
+        //todo efficiency change compare method
         switch (op) {
             case EQ_OP:
                 if (compData == nullptr && recordVal == nullptr) {
@@ -620,7 +642,8 @@ namespace PeterDB {
         unsigned curOff = 0;
         memcpy(&curOff, pageData + PAGE_SIZE - 2 * sizeof(short) * (curRid.slotNum + 1), sizeof(short));
 
-        for (unsigned i = 1; i <= recordNum; i++) {
+        unsigned short maxSlot = getMaxSkotNum(pageData, recordNum);
+        for (unsigned short i = 1; i <= maxSlot; i++) {
             unsigned offset = 0;
             memcpy(&offset, pageData + PAGE_SIZE - 2 * sizeof(short) * (i + 1), sizeof(short));
             pair_vec.emplace_back(offset, i);
@@ -642,4 +665,12 @@ namespace PeterDB {
         return RC::ok;
     }
 
+    bool RecordBasedFileManager::checkInternalRid(char *pageData, const RID &rid) {
+        unsigned short offset = 0, len = 0;
+        readSlotInfo(pageData, rid, offset, len);
+        if (len >= 32768) {
+            return true;
+        }
+        return false;
+    }
 }
