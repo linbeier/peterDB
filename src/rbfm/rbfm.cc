@@ -359,7 +359,8 @@ namespace PeterDB {
 
                 //write tombstone
                 char *tombstone = new char[TOMBSTONE_SIZE];
-                char flag = 128;
+                char flag = '\0';
+                flag |= 1U << 7;
                 memcpy(tombstone, &flag, sizeof(char));
                 memcpy(tombstone + 1, &insertR.pageNum, sizeof(int));
                 memcpy(tombstone + sizeof(int) + 1, &insertR.slotNum, sizeof(short));

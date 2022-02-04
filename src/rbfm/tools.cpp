@@ -285,7 +285,7 @@ namespace PeterDB {
         unsigned short offset = *((unsigned short *) buf);
         char singlebuf;
         memcpy(&singlebuf, pageData + offset, sizeof(char));
-        if (singlebuf == 128)return true;
+        if (((singlebuf >> 7) & 1U) == 1)return true;
         return false;
     }
 
