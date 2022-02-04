@@ -18,7 +18,7 @@
             "output": "",
             "comparison": "included",
             "timeout": 1,
-            "points": 1
+            "points": 0
         },
         {
             "name": "PFM_File_Test.create_existing_file",
@@ -28,7 +28,7 @@
             "output": "",
             "comparison": "included",
             "timeout": 1,
-            "points": 2
+            "points": 0
         },
         {
             "name": "PFM_File_Test.destroy_file",
@@ -38,7 +38,7 @@
             "output": "",
             "comparison": "included",
             "timeout": 1,
-            "points": 3
+            "points": 0
         },
         {
             "name": "PFM_File_Test.destroy_nonexistent_file",
@@ -48,7 +48,7 @@
             "output": "",
             "comparison": "included",
             "timeout": 1,
-            "points": 3
+            "points": 0
         },
         {
             "name": "PFM_File_Test.open_and_close_file",
@@ -58,7 +58,7 @@
             "output": "",
             "comparison": "included",
             "timeout": 1,
-            "points": 3
+            "points": 0
         },
         {
             "name": "PFM_Page_Test.get_page_numbers",
@@ -68,7 +68,7 @@
             "output": "",
             "comparison": "included",
             "timeout": 1,
-            "points": 3
+            "points": 0
         },
         {
             "name": "PFM_Page_Test.read_nonexistent_page",
@@ -78,7 +78,7 @@
             "output": "",
             "comparison": "included",
             "timeout": 1,
-            "points": 3
+            "points": 0
         },
         {
             "name": "PFM_Page_Test.append_and_read_pages",
@@ -88,7 +88,7 @@
             "output": "",
             "comparison": "included",
             "timeout": 1,
-            "points": 3
+            "points": 0
         },
         {
             "name": "PFM_Page_Test.write_nonexistent_page",
@@ -98,7 +98,7 @@
             "output": "",
             "comparison": "included",
             "timeout": 1,
-            "points": 3
+            "points": 0
         },
         {
             "name": "PFM_Page_Test.write_and_read_pages",
@@ -108,7 +108,7 @@
             "output": "",
             "comparison": "included",
             "timeout": 1,
-            "points": 3
+            "points": 0
         },
         {
             "name": "PFM_Page_Test.append_and_write_and_read_pages",
@@ -118,7 +118,7 @@
             "output": "",
             "comparison": "included",
             "timeout": 1,
-            "points": 3
+            "points": 0
         },
         {
             "name": "RBFM_Test.insert_and_read_a_record",
@@ -128,7 +128,7 @@
             "output": "",
             "comparison": "included",
             "timeout": 1,
-            "points": 5
+            "points": 0
         },
         {
             "name": "RBFM_Test.insert_and_read_a_record_with_null",
@@ -138,7 +138,7 @@
             "output": "",
             "comparison": "included",
             "timeout": 1,
-            "points": 5
+            "points": 0
         },
         {
             "name": "RBFM_Test.insert_and_read_multiple_records",
@@ -148,7 +148,7 @@
             "output": "",
             "comparison": "included",
             "timeout": 1,
-            "points": 5
+            "points": 0
         },
         {
             "name": "RBFM_Test.insert_and_read_massive_records",
@@ -157,168 +157,228 @@
             "input": "",
             "output": "",
             "comparison": "included",
-            "timeout": 5,
-            "points": 5
+            "timeout": 2,
+            "points": 0
         },
         {
-            "name": "PFM_Private_Test.check_page_num_after_appending",
+            "name": "RBFM_Test.delete_records",
             "setup": "",
-            "run": "cd cmake-build-debug && CTEST_OUTPUT_ON_FAILURE=1 ctest . -R ^PFM_Private_Test.check_page_num_after_appending$",
+            "run": "cd cmake-build-debug && CTEST_OUTPUT_ON_FAILURE=1 ctest . -R ^RBFM_Test.delete_records$",
             "input": "",
             "output": "",
             "comparison": "included",
             "timeout": 1,
-            "points": 2
+            "points": 0
         },
         {
-            "name": "PFM_Private_Test.check_page_num_after_writing",
+            "name": "RBFM_Test.update_records",
             "setup": "",
-            "run": "cd cmake-build-debug && CTEST_OUTPUT_ON_FAILURE=1 ctest . -R ^PFM_Private_Test.check_page_num_after_writing$",
+            "run": "cd cmake-build-debug && CTEST_OUTPUT_ON_FAILURE=1 ctest . -R ^RBFM_Test.update_records$",
             "input": "",
             "output": "",
             "comparison": "included",
             "timeout": 1,
-            "points": 2
+            "points": 0
         },
         {
-            "name": "PFM_Private_Test.check_page_num_after_reading",
+            "name": "RM_Catalog_Test.create_and_delete_tables",
             "setup": "",
-            "run": "cd cmake-build-debug && CTEST_OUTPUT_ON_FAILURE=1 ctest . -R ^PFM_Private_Test.check_page_num_after_reading$",
+            "run": "cd cmake-build-debug && CTEST_OUTPUT_ON_FAILURE=1 ctest . -R ^RM_Catalog_Test.create_and_delete_tables$",
             "input": "",
             "output": "",
             "comparison": "included",
             "timeout": 1,
-            "points": 2
+            "points": 0
         },
         {
-            "name": "PFM_Private_Test.check_counters",
+            "name": "RM_Tuple_Test.get_attributes",
             "setup": "",
-            "run": "cd cmake-build-debug && CTEST_OUTPUT_ON_FAILURE=1 ctest . -R ^PFM_Private_Test.check_counters$",
+            "run": "cd cmake-build-debug && CTEST_OUTPUT_ON_FAILURE=1 ctest . -R ^RM_Tuple_Test.get_attributes$",
             "input": "",
             "output": "",
             "comparison": "included",
             "timeout": 1,
-            "points": 4
+            "points": 0
         },
         {
-            "name": "RBFM_Private_Test.varchar_compact_size",
+            "name": "RM_Tuple_Test.insert_and_read_tuple",
             "setup": "",
-            "run": "cd cmake-build-debug && CTEST_OUTPUT_ON_FAILURE=1 ctest . -R ^RBFM_Private_Test.varchar_compact_size$",
-            "input": "",
-            "output": "",
-            "comparison": "included",
-            "timeout": 5,
-            "points": 2
-        },
-        {
-            "name": "RBFM_Private_Test.insert_records_with_empty_and_null_varchar",
-            "setup": "",
-            "run": "cd cmake-build-debug && CTEST_OUTPUT_ON_FAILURE=1 ctest . -R ^RBFM_Private_Test.insert_records_with_empty_and_null_varchar$",
+            "run": "cd cmake-build-debug && CTEST_OUTPUT_ON_FAILURE=1 ctest . -R ^RM_Tuple_Test.insert_and_read_tuple$",
             "input": "",
             "output": "",
             "comparison": "included",
             "timeout": 1,
-            "points": 2
+            "points": 0
         },
         {
-            "name": "RBFM_Private_Test.insert_records_with_all_nulls",
+            "name": "RM_Tuple_Test.insert_and_delete_and_read_tuple",
             "setup": "",
-            "run": "cd cmake-build-debug && CTEST_OUTPUT_ON_FAILURE=1 ctest . -R ^RBFM_Private_Test.insert_records_with_all_nulls$",
+            "run": "cd cmake-build-debug && CTEST_OUTPUT_ON_FAILURE=1 ctest . -R ^RM_Tuple_Test.insert_and_delete_and_read_tuple$",
             "input": "",
             "output": "",
             "comparison": "included",
             "timeout": 1,
-            "points": 2
+            "points": 0
         },
         {
-            "name": "RBFM_Private_Test.read_records_with_all_nulls",
+            "name": "RM_Tuple_Test.insert_and_update_and_read_tuple",
             "setup": "",
-            "run": "cd cmake-build-debug && CTEST_OUTPUT_ON_FAILURE=1 ctest . -R ^RBFM_Private_Test.read_records_with_all_nulls$",
+            "run": "cd cmake-build-debug && CTEST_OUTPUT_ON_FAILURE=1 ctest . -R ^RM_Tuple_Test.insert_and_update_and_read_tuple$",
             "input": "",
             "output": "",
             "comparison": "included",
             "timeout": 1,
-            "points": 2
+            "points": 0
         },
         {
-            "name": "RBFM_Private_Test.insert_records_with_selected_nulls",
+            "name": "RM_Tuple_Test.read_attribute",
             "setup": "",
-            "run": "cd cmake-build-debug && CTEST_OUTPUT_ON_FAILURE=1 ctest . -R ^RBFM_Private_Test.insert_records_with_selected_nulls$",
+            "run": "cd cmake-build-debug && CTEST_OUTPUT_ON_FAILURE=1 ctest . -R ^RM_Tuple_Test.read_attribute$",
             "input": "",
             "output": "",
             "comparison": "included",
             "timeout": 1,
-            "points": 2
+            "points": 0
         },
         {
-            "name": "RBFM_Private_Test.read_records_with_selected_nulls",
+            "name": "RM_Tuple_Test.delete_table",
             "setup": "",
-            "run": "cd cmake-build-debug && CTEST_OUTPUT_ON_FAILURE=1 ctest . -R ^RBFM_Private_Test.read_records_with_selected_nulls$",
+            "run": "cd cmake-build-debug && CTEST_OUTPUT_ON_FAILURE=1 ctest . -R ^RM_Tuple_Test.delete_table$",
             "input": "",
             "output": "",
             "comparison": "included",
             "timeout": 1,
-            "points": 2
+            "points": 0
         },
         {
-            "name": "RBFM_Private_Test.insert_large_records",
+            "name": "RM_Scan_Test.simple_scan",
             "setup": "",
-            "run": "cd cmake-build-debug && CTEST_OUTPUT_ON_FAILURE=1 ctest . -R ^RBFM_Private_Test.insert_large_records$",
+            "run": "cd cmake-build-debug && CTEST_OUTPUT_ON_FAILURE=1 ctest . -R ^RM_Scan_Test.simple_scan$",
             "input": "",
             "output": "",
             "comparison": "included",
             "timeout": 1,
-            "points": 3
+            "points": 0
         },
         {
-            "name": "RBFM_Private_Test.read_large_records",
+            "name": "RM_Scan_Test.simple_scan_after_table_deletion",
             "setup": "",
-            "run": "cd cmake-build-debug && CTEST_OUTPUT_ON_FAILURE=1 ctest . -R ^RBFM_Private_Test.read_large_records$",
+            "run": "cd cmake-build-debug && CTEST_OUTPUT_ON_FAILURE=1 ctest . -R ^RM_Scan_Test.simple_scan_after_table_deletion$",
             "input": "",
             "output": "",
             "comparison": "included",
             "timeout": 1,
-            "points": 3
+            "points": 0
         },
         {
-            "name": "RBFM_Private_Test.insert_to_trigger_fill_lookup_and_append",
+            "name": "RM_Large_Table_Test.insert_large_tuples",
             "setup": "",
-            "run": "cd cmake-build-debug && CTEST_OUTPUT_ON_FAILURE=1 ctest . -R ^RBFM_Private_Test.insert_to_trigger_fill_lookup_and_append$",
+            "run": "cd cmake-build-debug && CTEST_OUTPUT_ON_FAILURE=1 ctest . -R ^RM_Large_Table_Test.insert_large_tuples$",
             "input": "",
             "output": "",
             "comparison": "included",
             "timeout": 1,
-            "points": 3
+            "points": 0
         },
         {
-            "name": "RBFM_Private_Test.insert_massive_records",
+            "name": "RM_Large_Table_Test.read_large_tuples",
             "setup": "",
-            "run": "cd cmake-build-debug && CTEST_OUTPUT_ON_FAILURE=1 ctest . -R ^RBFM_Private_Test.insert_massive_records$",
+            "run": "cd cmake-build-debug && CTEST_OUTPUT_ON_FAILURE=1 ctest . -R ^RM_Large_Table_Test.read_large_tuples $",
             "input": "",
             "output": "",
             "comparison": "included",
-            "timeout": 15,
-            "points": 3
+            "timeout": 1,
+            "points": 0
         },
         {
-            "name": "RBFM_Private_Test.read_massive_records",
+            "name": "RM_Large_Table_Test.update_and_read_large_tuples",
             "setup": "",
-            "run": "cd cmake-build-debug && CTEST_OUTPUT_ON_FAILURE=1 ctest . -R ^RBFM_Private_Test.read_massive_records$",
+            "run": "cd cmake-build-debug && CTEST_OUTPUT_ON_FAILURE=1 ctest . -R ^RM_Large_Table_Test.update_and_read_large_tuples$",
             "input": "",
             "output": "",
             "comparison": "included",
-            "timeout": 15,
-            "points": 3
+            "timeout": 1,
+            "points": 0
         },
         {
-            "name": "RBFM_Private_Test.measure_time_complexity",
+            "name": "RM_Large_Table_Test.delete_and_read_large_tuples",
             "setup": "",
-            "run": "cd cmake-build-debug && CTEST_OUTPUT_ON_FAILURE=1 ctest . -R ^RBFM_Private_Test.measure_time_complexity$",
+            "run": "cd cmake-build-debug && CTEST_OUTPUT_ON_FAILURE=1 ctest . -R ^RM_Large_Table_Test.delete_and_read_large_tuples$",
             "input": "",
             "output": "",
             "comparison": "included",
-            "timeout": 3,
-            "points": 3
+            "timeout": 1,
+            "points": 0
+        },
+        {
+            "name": "RM_Large_Table_Test.scan_large_tuples",
+            "setup": "",
+            "run": "cd cmake-build-debug && CTEST_OUTPUT_ON_FAILURE=1 ctest . -R ^RM_Large_Table_Test.scan_large_tuples$",
+            "input": "",
+            "output": "",
+            "comparison": "included",
+            "timeout": 1,
+            "points": 0
+        },
+        {
+            "name": "RM_Scan_Test.conditional_scan",
+            "setup": "",
+            "run": "cd cmake-build-debug && CTEST_OUTPUT_ON_FAILURE=1 ctest . -R ^RM_Scan_Test.conditional_scan $",
+            "input": "",
+            "output": "",
+            "comparison": "included",
+            "timeout": 1,
+            "points": 0
+        },
+        {
+            "name": "RM_Scan_Test.conditional_scan_with_null",
+            "setup": "",
+            "run": "cd cmake-build-debug && CTEST_OUTPUT_ON_FAILURE=1 ctest . -R ^RM_Scan_Test.conditional_scan_with_null$",
+            "input": "",
+            "output": "",
+            "comparison": "included",
+            "timeout": 1,
+            "points": 0
+        },
+        {
+            "name": "RM_Catalog_Scan_Test.catalog_tables_table_check",
+            "setup": "",
+            "run": "cd cmake-build-debug && CTEST_OUTPUT_ON_FAILURE=1 ctest . -R ^RM_Catalog_Scan_Test.catalog_tables_table_check$",
+            "input": "",
+            "output": "",
+            "comparison": "included",
+            "timeout": 1,
+            "points": 0
+        },
+        {
+            "name": "RM_Catalog_Scan_Test.catalog_columns_table_check",
+            "setup": "",
+            "run": "cd cmake-build-debug && CTEST_OUTPUT_ON_FAILURE=1 ctest . -R ^RM_Catalog_Scan_Test.catalog_columns_table_check$",
+            "input": "",
+            "output": "",
+            "comparison": "included",
+            "timeout": 1,
+            "points": 0
+        },
+        {
+            "name": "RM_Version_Test.read_after_drop_attribute",
+            "setup": "",
+            "run": "cd cmake-build-debug && CTEST_OUTPUT_ON_FAILURE=1 ctest . -R ^RM_Version_Test.read_after_drop_attribute$",
+            "input": "",
+            "output": "",
+            "comparison": "included",
+            "timeout": 1,
+            "points": 0
+        },
+        {
+            "name": "RM_Version_Test.read_after_add_attribute",
+            "setup": "",
+            "run": "cd cmake-build-debug && CTEST_OUTPUT_ON_FAILURE=1 ctest . -R ^RM_Version_Test.read_after_add_attribute$",
+            "input": "",
+            "output": "",
+            "comparison": "included",
+            "timeout": 1,
+            "points": 0
         }
     ]
 }
