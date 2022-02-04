@@ -313,6 +313,9 @@ namespace PeterDB {
     }
 
     RC RelationManager::insertTuple(const std::string &tableName, const void *data, RID &rid) {
+        if (tableName == tableCatalog || tableName == columnsCatalog) {
+            return RC::REMV_FILE_FAIL;
+        }
         std::vector<Attribute> attr;
         std::string fileName;
         FileHandle fd;
@@ -332,6 +335,9 @@ namespace PeterDB {
     }
 
     RC RelationManager::deleteTuple(const std::string &tableName, const RID &rid) {
+        if (tableName == tableCatalog || tableName == columnsCatalog) {
+            return RC::REMV_FILE_FAIL;
+        }
         std::vector<Attribute> attr;
         std::string fileName;
         FileHandle fd;
@@ -351,6 +357,9 @@ namespace PeterDB {
     }
 
     RC RelationManager::updateTuple(const std::string &tableName, const void *data, const RID &rid) {
+        if (tableName == tableCatalog || tableName == columnsCatalog) {
+            return RC::REMV_FILE_FAIL;
+        }
         std::vector<Attribute> attr;
         std::string fileName;
         FileHandle fd;
