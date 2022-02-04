@@ -28,7 +28,7 @@ namespace PeterDB {
         return fileHandle.freeSpaceList[pageNum];
     }
 
-    unsigned short RecordBasedFileManager::getMaxSkotNum(const char *pageData, unsigned short recordNum) {
+    unsigned short RecordBasedFileManager::getMaxSlotNum(const char *pageData, unsigned short recordNum) {
         unsigned short slotCounter = 0;
         for (unsigned i = 1; i <= recordNum; i++) {
             slotCounter++;
@@ -61,7 +61,7 @@ namespace PeterDB {
 
         char buf[2];
         unsigned short maxoffset = 0, len = 0;
-        unsigned short maxSlot = getMaxSkotNum(pagebuffer, recordnum);
+        unsigned short maxSlot = getMaxSlotNum(pagebuffer, recordnum);
         for (int i = 1; i <= maxSlot; i++) {
             memcpy(buf, pagebuffer + PAGE_SIZE - 4 * (i + 1), sizeof(short));
             unsigned short offset = *((short *) buf);
@@ -318,7 +318,7 @@ namespace PeterDB {
         return RC::ok;
     }
 
-    //insert records that have been constructed, used by updateRecords
+    //insert records that have been constructed, used by update Records
     RC RecordBasedFileManager::insertConstructedRecord(FileHandle &fileHandle, const char *recordbuf,
                                                        const int &buflen, RID &rid) {
         //padding record to 6 bytes, at least 6 bytes to store a tombstone, otherwise manager need to shift right when
@@ -339,10 +339,10 @@ namespace PeterDB {
             memcpy(pagebuffer + offset, recordbuf, buflen);
 
             rid.pageNum = totalpage - 1;
-
             unsigned short slotnum = writeSlotInfo(pagebuffer, offset, buflen, fileHandle.freeSpaceList[rid.pageNum]);
-
             rid.slotNum = slotnum;
+
+            markInternalRid(pagebuffer, rid);
 
         } else {
 
@@ -359,6 +359,8 @@ namespace PeterDB {
                                                            fileHandle.freeSpaceList[rid.pageNum]);
                     inserted = true;
                     rid.slotNum = slotnum;
+
+                    markInternalRid(pagebuffer, rid);
                     break;
                 }
             }
@@ -373,6 +375,8 @@ namespace PeterDB {
                 unsigned short slotnum = writeSlotInfo(pagebuffer, offset, buflen,
                                                        fileHandle.freeSpaceList[rid.pageNum]);
                 rid.slotNum = slotnum;
+
+                markInternalRid(pagebuffer, rid);
             }
         }
 
@@ -642,7 +646,7 @@ namespace PeterDB {
         unsigned curOff = 0;
         memcpy(&curOff, pageData + PAGE_SIZE - 2 * sizeof(short) * (curRid.slotNum + 1), sizeof(short));
 
-        unsigned short maxSlot = getMaxSkotNum(pageData, recordNum);
+        unsigned short maxSlot = getMaxSlotNum(pageData, recordNum);
         for (unsigned short i = 1; i <= maxSlot; i++) {
             unsigned offset = 0;
             memcpy(&offset, pageData + PAGE_SIZE - 2 * sizeof(short) * (i + 1), sizeof(short));
@@ -672,5 +676,15 @@ namespace PeterDB {
             return true;
         }
         return false;
+    }
+
+    RC RecordBasedFileManager::markInternalRid(char *pageData, const RID &rid) {
+        unsigned short offset = 0, len = 0;
+        readSlotInfo(pageData, rid, offset, len);
+        if (len >= 32768) {
+            len -= 32768;
+        }
+        updateSlotInfo(pageData, rid, offset, len + 32768);
+        return RC::ok;
     }
 }

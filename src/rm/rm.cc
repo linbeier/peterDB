@@ -152,6 +152,9 @@ namespace PeterDB {
     }
 
     RC RelationManager::createTable(const std::string &tableName, const std::vector<Attribute> &attrs) {
+        if (tableName == tableCatalog || tableName == columnsCatalog) {
+            return RC::CREA_FILE_FAIL;
+        }
         FileHandle fd_table;
         FileHandle fd_col;
         RC re = rbfm->openFile(tableCatalog, fd_table);

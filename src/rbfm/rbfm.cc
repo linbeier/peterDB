@@ -128,17 +128,27 @@ namespace PeterDB {
         if (checkTombstone(pageData, rid)) {
             accessRealRecord(fileHandle, rid, realRid);
         }
+        if (realRid.pageNum != rid.pageNum) {
+            result = fileHandle.readPage(realRid.pageNum, pageData);
+            if (result != RC::ok) {
+                delete[]pageData;
+                delete[]recordData;
+                return result;
+            }
 
-        result = fileHandle.readPage(realRid.pageNum, pageData);
-        if (result != RC::ok) {
-            delete[]pageData;
-            delete[]recordData;
-            return result;
+            if (checkRecordDeleted(pageData, realRid)) {
+                delete[]pageData;
+                delete[]recordData;
+                return RC::RECORD_HAS_DEL;
+            }
         }
 
-
+        
         //fetch slot data
         readSlotInfo(pageData, realRid, recordOffset, recordLen);
+        if (recordLen >= 32768) {
+            recordLen -= 32768;
+        }
         memcpy(recordData, pageData + recordOffset, recordLen);
 
         //construct record
@@ -180,7 +190,7 @@ namespace PeterDB {
 
         //no records after current record
         //todo leaves holes
-        unsigned short maxSlot = getMaxSkotNum(pageData, recordNum);
+        unsigned short maxSlot = getMaxSlotNum(pageData, recordNum);
         if (rid.slotNum >= maxSlot) {
             markDeleteRecord(fileHandle, pageData, rid);
             fileHandle.writePage(rid.pageNum, pageData);
@@ -359,7 +369,7 @@ namespace PeterDB {
                 //shift left
                 memcpy(pageData + oriRecordOff + TOMBSTONE_SIZE, pageData + oriRecordOff + oriRecordLen, followedLen);
 
-                if (rid.pageNum == realRid.pageNum && rid.slotNum == realRid.slotNum) {
+                if (!checkInternalRid(pageData, realRid)) {
                     updateSlotInfo(pageData, realRid, oriRecordOff, TOMBSTONE_SIZE);
                 } else {
                     //indicates this is an internal rid
@@ -440,7 +450,7 @@ namespace PeterDB {
         if (realRid.pageNum != rid.pageNum) {
             fileHandle.readPage(realRid.pageNum, pagebuffer);
 
-            if (checkRecordDeleted(pagebuffer, rid)) {
+            if (checkRecordDeleted(pagebuffer, realRid)) {
                 delete[]pagebuffer;
                 return RC::RECORD_HAS_DEL;
             }
@@ -554,7 +564,9 @@ namespace PeterDB {
                 if (RecordBasedFileManager::instance().checkRecordDeleted(pageBuf, currentRid)) {
                     continue;
                 }
+                //check if internal Rid
                 if (RecordBasedFileManager::instance().checkInternalRid(pageBuf, currentRid)) {
+                    actualCounter++;
                     continue;
                 }
                 actualCounter++;

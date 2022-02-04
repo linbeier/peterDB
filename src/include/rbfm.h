@@ -209,7 +209,9 @@ namespace PeterDB {
 
         bool checkInternalRid(char *pageData, const RID &rid);
 
-        unsigned short getMaxSkotNum(const char *pageData, unsigned short recordNum);
+        unsigned short getMaxSlotNum(const char *pageData, unsigned short recordNum);
+
+        RC markInternalRid(char *pageData, const RID &rid);
 
     protected:
         RecordBasedFileManager();                                                   // Prevent construction
