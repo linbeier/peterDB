@@ -143,7 +143,7 @@ namespace PeterDB {
             }
         }
 
-        
+
         //fetch slot data
         readSlotInfo(pageData, realRid, recordOffset, recordLen);
         if (recordLen >= 32768) {
@@ -558,7 +558,7 @@ namespace PeterDB {
             unsigned short recordNum = 0;
             recordNum = RecordBasedFileManager::getRecordNum(pageBuf);
 
-            //todo 2 loop counter, one for counter slot, another for stop loop when actual counter bigger than recordNum
+            //2 loop counter, one for counter slot, another for stop loop when actual counter bigger than recordNum
             for (; actualCounter <= recordNum; currentRid.slotNum++) {
 
                 //check if deleted

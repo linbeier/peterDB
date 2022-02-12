@@ -473,8 +473,6 @@ namespace PeterDB {
             if (re != RC::ok) {
                 return re;
             }
-            delete iter;
-            iter = nullptr;
         }
         return RC::ok;
     }
