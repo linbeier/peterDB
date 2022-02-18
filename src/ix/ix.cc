@@ -7,14 +7,38 @@ namespace PeterDB {
     }
 
     RC IndexManager::createFile(const std::string &fileName) {
-        return -1;
+        if (pm->is_file_exist(fileName.c_str())) {
+
+            return RC::CREA_FILE_FAIL;
+        } else {
+            FILE *fd = fopen(fileName.c_str(), "wb");
+
+            if (fd == nullptr) {
+                return RC::CREA_FILE_FAIL;
+            }
+            insertHiddenPage(fd);
+            insertHiddenPage(fd);
+
+            fclose(fd);
+        }
+
+        return RC::ok;
     }
 
     RC IndexManager::destroyFile(const std::string &fileName) {
-        return -1;
+        if (!pm->is_file_exist(fileName.c_str())) {
+            return RC::REMV_FILE_FAIL;
+        } else {
+            const int result = remove(fileName.c_str());
+            if (result != 0) {
+                return RC::REMV_FILE_FAIL;
+            }
+        }
+        return RC::ok;
     }
 
     RC IndexManager::openFile(const std::string &fileName, IXFileHandle &ixFileHandle) {
+        
         return -1;
     }
 

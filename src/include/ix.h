@@ -6,6 +6,7 @@
 
 #include "pfm.h"
 #include "rbfm.h" // for some type declarations only, e.g., RID and Attribute
+#include <iostream>
 
 # define IX_EOF (-1)  // end of the index scan
 
@@ -15,6 +16,7 @@ namespace PeterDB {
     class IXFileHandle;
 
     class IndexManager {
+        PagedFileManager *pm;
 
     public:
         static IndexManager &instance();
@@ -49,8 +51,15 @@ namespace PeterDB {
         // Print the B+ tree in pre-order (in a JSON record format)
         RC printBTree(IXFileHandle &ixFileHandle, const Attribute &attribute, std::ostream &out) const;
 
+        //tools
+        RC insertHiddenPage(FILE *fd);
+
+        RC insertDummyNode(FILE *fd);
+
     protected:
-        IndexManager() = default;                                                   // Prevent construction
+        IndexManager() : pm(&PagedFileManager::instance()) {
+
+        }                                                  // Prevent construction
         ~IndexManager() = default;                                                  // Prevent unwanted destruction
         IndexManager(const IndexManager &) = default;                               // Prevent construction by copying
         IndexManager &operator=(const IndexManager &) = default;                    // Prevent assignment

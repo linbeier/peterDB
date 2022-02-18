@@ -270,6 +270,7 @@ namespace PeterDB {
 
         unsigned tableId = 0;
         if (getTableId(tableName, tableId) != RC::ok) {
+            rbfm->closeFile(fd_col);
             return (RC) RM_EOF;
         }
 
@@ -328,6 +329,7 @@ namespace PeterDB {
         }
         re = rbfm->insertRecord(fd, attr, data, rid);
         if (re != RC::ok) {
+            rbfm->closeFile(fd);
             return re;
         }
         rbfm->closeFile(fd);
@@ -350,6 +352,7 @@ namespace PeterDB {
         }
         re = rbfm->deleteRecord(fd, attr, rid);
         if (re != RC::ok) {
+            rbfm->closeFile(fd);
             return re;
         }
         rbfm->closeFile(fd);
@@ -372,6 +375,7 @@ namespace PeterDB {
         }
         re = rbfm->updateRecord(fd, attr, data, rid);
         if (re != RC::ok) {
+            rbfm->closeFile(fd);
             return re;
         }
         rbfm->closeFile(fd);
@@ -391,6 +395,7 @@ namespace PeterDB {
         }
         re = rbfm->readRecord(fd, attr, rid, data);
         if (re != RC::ok) {
+            rbfm->closeFile(fd);
             return re;
         }
         rbfm->closeFile(fd);
@@ -416,6 +421,7 @@ namespace PeterDB {
         rbfm->openFile(fileName, fd);
         RC re = rbfm->readAttribute(fd, attr, rid, attributeName, data);
         if (re != RC::ok) {
+            rbfm->closeFile(fd);
             return re;
         }
         rbfm->closeFile(fd);
@@ -442,9 +448,10 @@ namespace PeterDB {
         re = rbfm->scan(fd, attr, conditionAttribute, compOp,
                         value, attributeNames, *rm_ScanIterator.iter);
         if (re != RC::ok) {
+            rbfm->closeFile(fd);
             return re;
         }
-
+        rbfm->closeFile(fd);
         return RC::ok;
     }
 
