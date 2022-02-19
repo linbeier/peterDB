@@ -451,7 +451,7 @@ namespace PeterDB {
             rbfm->closeFile(fd);
             return re;
         }
-        rbfm->closeFile(fd);
+//        rbfm->closeFile(fd);
         return RC::ok;
     }
 

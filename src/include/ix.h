@@ -56,6 +56,14 @@ namespace PeterDB {
 
         RC insertDummyNode(FILE *fd);
 
+        RC readHiddenPage(FILE *fd, FileHandle &fileHandle);
+
+        RC readDummyNode(FILE *fd, unsigned &root);
+
+        RC writeHiddenPage(FileHandle &fileHandle);
+
+        RC writeDummyNode(IXFileHandle &fileHandle);
+
     protected:
         IndexManager() : pm(&PagedFileManager::instance()) {
 
@@ -89,6 +97,10 @@ namespace PeterDB {
         unsigned ixReadPageCounter;
         unsigned ixWritePageCounter;
         unsigned ixAppendPageCounter;
+
+        //root page start from 1, 0 indicates dummy root
+        unsigned rootPage;
+        FileHandle fileHandle;
 
         // Constructor
         IXFileHandle();

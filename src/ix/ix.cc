@@ -17,7 +17,7 @@ namespace PeterDB {
                 return RC::CREA_FILE_FAIL;
             }
             insertHiddenPage(fd);
-            insertHiddenPage(fd);
+            insertDummyNode(fd);
 
             fclose(fd);
         }
@@ -38,12 +38,27 @@ namespace PeterDB {
     }
 
     RC IndexManager::openFile(const std::string &fileName, IXFileHandle &ixFileHandle) {
-        
-        return -1;
+        if (!pm->is_file_exist(fileName.c_str())) {
+            return RC::OPEN_FILE_FAIL;
+        } else {
+            FILE *fd = fopen(fileName.c_str(), "r+b");
+            readHiddenPage(fd, ixFileHandle.fileHandle);
+            readDummyNode(fd, ixFileHandle.rootPage);
+
+        }
+        return RC::ok;
     }
 
     RC IndexManager::closeFile(IXFileHandle &ixFileHandle) {
-        return -1;
+        if (ixFileHandle.fileHandle.fd == nullptr) {
+            return RC::FD_FAIL;
+        } else {
+            writeHiddenPage(ixFileHandle.fileHandle);
+            writeDummyNode(ixFileHandle);
+            fclose(ixFileHandle.fileHandle.fd);
+            ixFileHandle.fileHandle.fd = nullptr;
+        }
+        return RC::ok;
     }
 
     RC
@@ -87,6 +102,9 @@ namespace PeterDB {
         ixReadPageCounter = 0;
         ixWritePageCounter = 0;
         ixAppendPageCounter = 0;
+
+        rootPage = 0;
+        fileHandle = FileHandle();
     }
 
     IXFileHandle::~IXFileHandle() {
