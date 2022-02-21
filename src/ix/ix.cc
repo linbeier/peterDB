@@ -40,6 +40,8 @@ namespace PeterDB {
     RC IndexManager::openFile(const std::string &fileName, IXFileHandle &ixFileHandle) {
         if (!pm->is_file_exist(fileName.c_str())) {
             return RC::OPEN_FILE_FAIL;
+        } else if (ixFileHandle.fileHandle.fd != nullptr) {
+            return RC::OPEN_FILE_FAIL;
         } else {
             FILE *fd = fopen(fileName.c_str(), "r+b");
             readHiddenPage(fd, ixFileHandle.fileHandle);
@@ -63,12 +65,13 @@ namespace PeterDB {
 
     RC
     IndexManager::insertEntry(IXFileHandle &ixFileHandle, const Attribute &attribute, const void *key, const RID &rid) {
-        return -1;
+
+        return RC::ok;
     }
 
     RC
     IndexManager::deleteEntry(IXFileHandle &ixFileHandle, const Attribute &attribute, const void *key, const RID &rid) {
-        return -1;
+        return RC::ok;
     }
 
     RC IndexManager::scan(IXFileHandle &ixFileHandle,
@@ -78,7 +81,8 @@ namespace PeterDB {
                           bool lowKeyInclusive,
                           bool highKeyInclusive,
                           IX_ScanIterator &ix_ScanIterator) {
-        return -1;
+        
+        return RC::ok;
     }
 
     RC IndexManager::printBTree(IXFileHandle &ixFileHandle, const Attribute &attribute, std::ostream &out) const {
@@ -91,11 +95,11 @@ namespace PeterDB {
     }
 
     RC IX_ScanIterator::getNextEntry(RID &rid, void *key) {
-        return -1;
+        return RC::ok;
     }
 
     RC IX_ScanIterator::close() {
-        return -1;
+        return RC::ok;
     }
 
     IXFileHandle::IXFileHandle() {
@@ -104,6 +108,7 @@ namespace PeterDB {
         ixAppendPageCounter = 0;
 
         rootPage = 0;
+        isKeyFixed = true;
         fileHandle = FileHandle();
     }
 
@@ -112,7 +117,7 @@ namespace PeterDB {
 
     RC
     IXFileHandle::collectCounterValues(unsigned &readPageCount, unsigned &writePageCount, unsigned &appendPageCount) {
-        return -1;
+        return RC::ok;
     }
 
 } // namespace PeterDB

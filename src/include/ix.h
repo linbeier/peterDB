@@ -64,6 +64,20 @@ namespace PeterDB {
 
         RC writeDummyNode(IXFileHandle &fileHandle);
 
+        RC insertNewIndexPage(IXFileHandle &fh, unsigned &pageNum, bool isLeafNode, bool isKeyFixed);
+
+        RC findKeyInLeaf(IXFileHandle &fh, const Attribute &attribute, const void *lowKey, unsigned &pageNum);
+
+        RC treeSearch(IXFileHandle &fh, const Attribute &attribute, const void *lowKey, unsigned &pageNum);
+
+        template<class T>
+        RC checkIndexKeys(IXFileHandle &fh, const char *pageBuffer, const Attribute &attribute, const void *lowKey,
+                          unsigned &pageNum);
+
+        template<class T>
+        RC checkLeafKeys(IXFileHandle &fh, const char *pageBuffer, const Attribute &attribute, const void *lowKey,
+                         unsigned &pageNum);
+
     protected:
         IndexManager() : pm(&PagedFileManager::instance()) {
 
@@ -100,6 +114,7 @@ namespace PeterDB {
 
         //root page start from 1, 0 indicates dummy root
         unsigned rootPage;
+        bool isKeyFixed;
         FileHandle fileHandle;
 
         // Constructor
