@@ -24,6 +24,12 @@ namespace PeterDB {
         return false;
     }
 
+    unsigned getNextPage(const char *pageBuffer) {
+        unsigned pageNum = 0;
+        memcpy(&pageNum, pageBuffer + PAGE_SIZE - 4 - 4 - 1 - 4, sizeof(int));
+        return pageNum;
+    }
+
     RC IndexManager::insertHiddenPage(FILE *fd) {
         //create hidden page: data = read, write, append counter
         char pagebuffer[PAGE_SIZE];
@@ -137,12 +143,21 @@ namespace PeterDB {
     }
 
     RC
-    IndexManager::findKeyInLeaf(IXFileHandle &fh, const Attribute &attribute, const void *lowKey, unsigned &pageNum) {
+    IndexManager::findKeyInLeaf(IXFileHandle &fh, const Attribute &attribute, const void *lowKey, unsigned &pageNum,
+                                unsigned &keyIndex, bool &noMatchKey, bool lowKeyInclusive) {
         if (attribute.type == TypeReal || attribute.type == TypeInt) {
             fh.isKeyFixed = true;
         }
         pageNum = fh.rootPage;
-        return treeSearch(fh, attribute, lowKey, pageNum);
+        RC re = treeSearch(fh, attribute, lowKey, pageNum);
+        if (re != RC::ok) {
+            return re;
+        }
+        re = leafSearch(fh, attribute, lowKey, pageNum, keyIndex, noMatchKey, lowKeyInclusive);
+        if (re != RC::ok) {
+            return re;
+        }
+        return RC::ok;
     }
 
     RC IndexManager::treeSearch(IXFileHandle &fh, const Attribute &attribute, const void *lowKey, unsigned &pageNum) {
@@ -163,9 +178,29 @@ namespace PeterDB {
         }
     }
 
+    //return pointer to first result matches search
+    RC IndexManager::leafSearch(IXFileHandle &fh, const Attribute &attribute, const void *lowKey, unsigned &pageNum,
+                                unsigned &keyIndex, bool &noMatchKey, bool lowKeyInclusive) {
+        char pageBuffer[PAGE_SIZE];
+        fh.fileHandle.readPage(pageNum, pageBuffer);
+        RC re = RC::ok;
+        if (attribute.type == TypeInt) {
+            re = checkLeafKeys<int>(fh, pageBuffer, attribute, lowKey, keyIndex, noMatchKey, lowKeyInclusive);
+        } else if (attribute.type == TypeReal) {
+            re = checkLeafKeys<float>(fh, pageBuffer, attribute, lowKey, keyIndex, noMatchKey, lowKeyInclusive);
+        } else {
+            re = checkLeafKeys<char *>(fh, pageBuffer, attribute, lowKey, keyIndex, noMatchKey, lowKeyInclusive);
+        }
+
+        if (re != RC::ok) {
+            return re;
+        }
+        return RC::ok;
+    }
+
     template<class T>
-    RC IndexManager::checkIndexKeys(IXFileHandle &fh, const char *pageBuffer, const Attribute &attribute,
-                                    const void *lowKey, unsigned &pageNum) {
+    RC checkIndexKeys(IXFileHandle &fh, const char *pageBuffer, const Attribute &attribute,
+                      const void *lowKey, unsigned &pageNum) {
         if (pageBuffer == nullptr) {
             return RC::FD_FAIL;
         }
@@ -189,22 +224,24 @@ namespace PeterDB {
 
         } else {
             int path = sizeof(int);
+            int lowKeyLen = 0;
+            memcpy(&lowKeyLen, lowKey, sizeof(int));
+            std::string lowKeyStr((const char *) lowKey + sizeof(int), lowKeyLen);
+
             for (int i = 0; i < keyNum; i++) {
                 int len = 0;
                 memcpy(&len, pageBuffer + path, sizeof(int));
                 path += sizeof(int);
-                char *buffer = new char[len];
-                memcpy(buffer, pageBuffer + path, len);
-                path += len;
 
-                if (memcmp(lowKey, &buffer, len) < 0) {
+                std::string pageKey(pageBuffer + path, len);
+                path += len;
+                //find first key bigger than lowkey return page number
+                if (pageKey > lowKeyStr) {
                     memcpy(&pageNum, pageBuffer + path - len - 2 * sizeof(int), sizeof(int));
-                    delete[]buffer;
                     return RC::ok;
                 }
 
                 path += sizeof(int);
-                delete[]buffer;
             }
 
             memcpy(&pageNum, pageBuffer + path - sizeof(int), sizeof(int));
@@ -214,8 +251,139 @@ namespace PeterDB {
     }
 
     template<class T>
-    RC IndexManager::checkLeafKeys(IXFileHandle &fh, const char *pageBuffer, const Attribute &attribute,
-                                   const void *lowKey, unsigned int &pageNum) {
-        
+    RC checkLeafKeys(IXFileHandle &fh, const char *pageBuffer, const Attribute &attribute,
+                     const void *lowKey, unsigned &keyIndex, bool &noMatchKey, bool lowKeyInclusive) {
+        if (pageBuffer == nullptr) {
+            return RC::FD_FAIL;
+        }
+        unsigned short keyNum = readKey(pageBuffer);
+        bool keyFixed = fh.isKeyFixed;
+
+        T key;
+
+        if (keyFixed) {
+            for (int i = 0; i < keyNum; i++) {
+                memcpy(&key, pageBuffer + (sizeof(int) + sizeof(int) + sizeof(short)) * i, sizeof(int));
+
+                if (lowKeyInclusive) {
+                    if (*(T *) lowKey <= key) {
+                        keyIndex = i;
+                        return RC::ok;
+                    }
+                } else {
+                    if (*(T *) lowKey < key) {
+                        keyIndex = i;
+                        return RC::ok;
+                    }
+                }
+            }
+
+        } else {
+            int path = 0;
+            int lowKeyLen = 0;
+            memcpy(&lowKeyLen, lowKey, sizeof(int));
+            std::string lowKeyStr((const char *) lowKey + sizeof(int), lowKeyLen);
+
+            for (int i = 0; i < keyNum; i++) {
+                int len = 0;
+                memcpy(&len, pageBuffer + path, sizeof(int));
+                path += sizeof(int);
+
+                std::string pageKey(pageBuffer + path, len);
+                path += len;
+                //find first key equal to lowkey return page number
+                if (lowKeyInclusive) {
+                    if (lowKeyStr <= pageKey) {
+                        keyIndex = i;
+                        return RC::ok;
+                    }
+                } else {
+                    if (lowKeyStr < pageKey) {
+                        keyIndex = i;
+                        return RC::ok;
+                    }
+                }
+
+                path += sizeof(int) + sizeof(short);
+            }
+        }
+        //find nothing matched in leaf nodes
+        noMatchKey = true;
+        return RC::ok;
+    }
+
+    //check high key
+    template<class T>
+    RC IX_ScanIterator::getRIDviaIndex(RID &rid, void *key) {
+        char pageBuffer[PAGE_SIZE];
+        ixFileHandle->fileHandle.readPage(pageIndex, pageBuffer);
+        unsigned short keyNum = readKey(pageBuffer);
+        if (keyNum <= keyIndex) {
+            keyIndex = 0;
+            pageIndex = getNextPage(pageBuffer);
+            if (pageIndex == 0)return RM_EOF;
+            return getRIDviaIndex<T>(rid, key);
+        }
+
+        if (attribute.type == TypeReal || attribute.type == TypeInt) {
+            memcpy(key, pageBuffer + (sizeof(int) + sizeof(int) + sizeof(short)) * keyIndex, sizeof(int));
+            if (highKeyInclusive) {
+                if (*(T *) highKey >= *(T *) key) {
+                    memcpy(&rid.pageNum, pageBuffer + (sizeof(int) + sizeof(int) + sizeof(short)) * keyIndex
+                                         + sizeof(int), sizeof(int));
+                    memcpy(&rid.slotNum, pageBuffer + (sizeof(int) + sizeof(int) + sizeof(short)) * keyIndex
+                                         + sizeof(int) + sizeof(int), sizeof(short));
+                    keyIndex++;
+                    return RC::ok;
+                }
+            } else {
+                if (*(T *) highKey > *(T *) key) {
+                    memcpy(&rid.pageNum,
+                           pageBuffer + (sizeof(int) + sizeof(int) + sizeof(short)) * keyIndex + sizeof(int),
+                           sizeof(int));
+                    memcpy(&rid.slotNum, pageBuffer + (sizeof(int) + sizeof(int) + sizeof(short)) * keyIndex
+                                         + sizeof(int) + sizeof(int), sizeof(short));
+                    keyIndex++;
+                    return RC::ok;
+                }
+            }
+        } else {
+            int path = 0;
+            int highKeyLen = 0;
+            memcpy(&highKeyLen, highKey, sizeof(int));
+            std::string highKeyStr((const char *) highKey + sizeof(int), highKeyLen);
+
+            for (int i = 0; i < keyIndex; i++) {
+                int len = 0;
+                memcpy(&len, pageBuffer + path, sizeof(int));
+                path += sizeof(int);
+                path += len;
+                path += sizeof(int) + sizeof(short);
+            }
+            //reach keyIndex
+            int len = 0;
+            memcpy(&len, pageBuffer + path, sizeof(int));
+            memcpy(&key, pageBuffer + path, len + sizeof(int));
+            path += sizeof(int);
+            std::string pageKey(pageBuffer + path, len);
+            path += len;
+            //find first key equal to lowkey return page number
+            if (highKeyInclusive) {
+                if (pageKey <= highKeyStr) {
+                    memcpy(&rid.pageNum, pageBuffer + path, sizeof(int));
+                    memcpy(&rid.slotNum, pageBuffer + path + sizeof(int), sizeof(short));
+                    keyIndex++;
+                    return RC::ok;
+                }
+            } else {
+                if (pageKey < highKeyStr) {
+                    memcpy(&rid.pageNum, pageBuffer + path, sizeof(int));
+                    memcpy(&rid.slotNum, pageBuffer + path + sizeof(int), sizeof(short));
+                    keyIndex++;
+                    return RC::ok;
+                }
+            }
+        }
+        return RC::RM_EOF;
     }
 };

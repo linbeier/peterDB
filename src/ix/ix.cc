@@ -81,24 +81,63 @@ namespace PeterDB {
                           bool lowKeyInclusive,
                           bool highKeyInclusive,
                           IX_ScanIterator &ix_ScanIterator) {
-        
+        ix_ScanIterator.ixFileHandle = &ixFileHandle;
+        ix_ScanIterator.attribute = attribute;
+        ix_ScanIterator.lowKey = lowKey;
+        ix_ScanIterator.highKey = highKey;
+        ix_ScanIterator.lowKeyInclusive = lowKeyInclusive;
+        ix_ScanIterator.highKeyInclusive = highKeyInclusive;
+        ix_ScanIterator.pageIndex = 0;
+        ix_ScanIterator.keyIndex = 0;
+
+        if (lowKey == nullptr) {
+            ix_ScanIterator.to_very_left = true;
+        } else {
+            ix_ScanIterator.to_very_left = false;
+        }
+        if (highKey == nullptr) {
+            ix_ScanIterator.to_very_right = true;
+        } else {
+            ix_ScanIterator.to_very_right = false;
+        }
+
+        RC re = findKeyInLeaf(*(ix_ScanIterator.ixFileHandle), ix_ScanIterator.attribute,
+                              ix_ScanIterator.lowKey, ix_ScanIterator.pageIndex,
+                              ix_ScanIterator.keyIndex, ix_ScanIterator.noMatchedKey,
+                              ix_ScanIterator.lowKeyInclusive);
+        if (re != RC::ok) {
+            return RC::RM_EOF;
+        }
+
         return RC::ok;
     }
 
     RC IndexManager::printBTree(IXFileHandle &ixFileHandle, const Attribute &attribute, std::ostream &out) const {
     }
 
-    IX_ScanIterator::IX_ScanIterator() {
+    IX_ScanIterator::IX_ScanIterator() : ixFileHandle(nullptr), lowKey(nullptr), highKey(nullptr), closed(false),
+                                         noMatchedKey(false) {
     }
 
     IX_ScanIterator::~IX_ScanIterator() {
     }
 
     RC IX_ScanIterator::getNextEntry(RID &rid, void *key) {
+        if (closed || noMatchedKey) {
+            return RC::RM_EOF;
+        }
+        if (attribute.type == TypeInt) {
+            return getRIDviaIndex<int>(rid, key);
+        } else if (attribute.type == TypeReal) {
+            return getRIDviaIndex<float>(rid, key);
+        } else {
+            return getRIDviaIndex<char *>(rid, key);
+        }
         return RC::ok;
     }
 
     RC IX_ScanIterator::close() {
+        closed = true;
         return RC::ok;
     }
 

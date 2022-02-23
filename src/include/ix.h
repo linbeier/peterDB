@@ -15,6 +15,14 @@ namespace PeterDB {
 
     class IXFileHandle;
 
+    template<class T>
+    RC checkLeafKeys(IXFileHandle &fh, const char *pageBuffer, const Attribute &attribute,
+                     const void *lowKey, unsigned &keyIndex, bool &noMatchKey, bool lowKeyInclusive);
+
+    template<class T>
+    RC checkIndexKeys(IXFileHandle &fh, const char *pageBuffer, const Attribute &attribute,
+                      const void *lowKey, unsigned &pageNum);
+
     class IndexManager {
         PagedFileManager *pm;
 
@@ -66,17 +74,23 @@ namespace PeterDB {
 
         RC insertNewIndexPage(IXFileHandle &fh, unsigned &pageNum, bool isLeafNode, bool isKeyFixed);
 
-        RC findKeyInLeaf(IXFileHandle &fh, const Attribute &attribute, const void *lowKey, unsigned &pageNum);
+        RC findKeyInLeaf(IXFileHandle &fh, const Attribute &attribute, const void *lowKey, unsigned &pageNum,
+                         unsigned &keyIndex, bool &noMatchKey, bool lowKeyInclusive);
 
         RC treeSearch(IXFileHandle &fh, const Attribute &attribute, const void *lowKey, unsigned &pageNum);
 
-        template<class T>
-        RC checkIndexKeys(IXFileHandle &fh, const char *pageBuffer, const Attribute &attribute, const void *lowKey,
-                          unsigned &pageNum);
+        RC
+        leafSearch(IXFileHandle &fh, const Attribute &attribute, const void *lowKey, unsigned &pageNum,
+                   unsigned &keyIndex, bool &noMatchKey, bool lowKeyInclusive);
 
-        template<class T>
-        RC checkLeafKeys(IXFileHandle &fh, const char *pageBuffer, const Attribute &attribute, const void *lowKey,
-                         unsigned &pageNum);
+
+//        template<class T>
+//        RC checkIndexKeys(IXFileHandle &fh, const char *pageBuffer, const Attribute &attribute, const void *lowKey,
+//                          unsigned &pageNum);
+
+//        template<class T>
+//        RC checkLeafKeys(IXFileHandle &fh, const char *pageBuffer, const Attribute &attribute, const void *lowKey,
+//                         RID &rid);
 
     protected:
         IndexManager() : pm(&PagedFileManager::instance()) {
@@ -90,6 +104,29 @@ namespace PeterDB {
 
     class IX_ScanIterator {
     public:
+        bool closed;
+
+        IXFileHandle *ixFileHandle;
+        Attribute attribute;
+        const void *lowKey;
+        const void *highKey;
+        bool lowKeyInclusive;
+        bool highKeyInclusive;
+        bool noMatchedKey;
+
+        unsigned pageIndex;
+        unsigned keyIndex;
+
+//        int low_str_len;
+//        char *low_str;
+//        int high_str_len;
+//        char *high_str;
+
+        bool to_very_left;
+        bool to_very_right;
+
+        template<class T>
+        RC getRIDviaIndex(RID &rid, void *key);
 
         // Constructor
         IX_ScanIterator();
