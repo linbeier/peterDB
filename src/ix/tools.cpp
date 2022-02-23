@@ -142,6 +142,7 @@ namespace PeterDB {
         return fh.fileHandle.appendPage(pageBuffer);
     }
 
+    //todo key is null
     RC
     IndexManager::findKeyInLeaf(IXFileHandle &fh, const Attribute &attribute, const void *lowKey, unsigned &pageNum,
                                 unsigned &keyIndex, bool &noMatchKey, bool lowKeyInclusive) {
@@ -207,6 +208,11 @@ namespace PeterDB {
         unsigned short keyNum = readKey(pageBuffer);
         bool keyFixed = fh.isKeyFixed;
 
+        if (lowKey == nullptr) {
+            memcpy(&pageNum, pageBuffer, sizeof(int));
+            return RC::ok;
+        }
+
         T key;
 
         if (keyFixed) {
@@ -258,6 +264,10 @@ namespace PeterDB {
         }
         unsigned short keyNum = readKey(pageBuffer);
         bool keyFixed = fh.isKeyFixed;
+        if (lowKey == nullptr) {
+            keyIndex = 0;
+            return RC::ok;
+        }
 
         T key;
 
@@ -318,7 +328,7 @@ namespace PeterDB {
         char pageBuffer[PAGE_SIZE];
         ixFileHandle->fileHandle.readPage(pageIndex, pageBuffer);
         unsigned short keyNum = readKey(pageBuffer);
-        if (keyNum <= keyIndex) {
+        if (keyNum - 1 <= keyIndex) {
             keyIndex = 0;
             pageIndex = getNextPage(pageBuffer);
             if (pageIndex == 0)return RM_EOF;
@@ -327,6 +337,14 @@ namespace PeterDB {
 
         if (attribute.type == TypeReal || attribute.type == TypeInt) {
             memcpy(key, pageBuffer + (sizeof(int) + sizeof(int) + sizeof(short)) * keyIndex, sizeof(int));
+            if (highKey == nullptr) {
+                memcpy(&rid.pageNum, pageBuffer + (sizeof(int) + sizeof(int) + sizeof(short)) * keyIndex
+                                     + sizeof(int), sizeof(int));
+                memcpy(&rid.slotNum, pageBuffer + (sizeof(int) + sizeof(int) + sizeof(short)) * keyIndex
+                                     + sizeof(int) + sizeof(int), sizeof(short));
+                keyIndex++;
+                return RC::ok;
+            }
             if (highKeyInclusive) {
                 if (*(T *) highKey >= *(T *) key) {
                     memcpy(&rid.pageNum, pageBuffer + (sizeof(int) + sizeof(int) + sizeof(short)) * keyIndex
@@ -368,6 +386,12 @@ namespace PeterDB {
             std::string pageKey(pageBuffer + path, len);
             path += len;
             //find first key equal to lowkey return page number
+            if (highKey == nullptr) {
+                memcpy(&rid.pageNum, pageBuffer + path, sizeof(int));
+                memcpy(&rid.slotNum, pageBuffer + path + sizeof(int), sizeof(short));
+                keyIndex++;
+                return RC::ok;
+            }
             if (highKeyInclusive) {
                 if (pageKey <= highKeyStr) {
                     memcpy(&rid.pageNum, pageBuffer + path, sizeof(int));

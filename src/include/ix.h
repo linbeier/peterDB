@@ -84,14 +84,6 @@ namespace PeterDB {
                    unsigned &keyIndex, bool &noMatchKey, bool lowKeyInclusive);
 
 
-//        template<class T>
-//        RC checkIndexKeys(IXFileHandle &fh, const char *pageBuffer, const Attribute &attribute, const void *lowKey,
-//                          unsigned &pageNum);
-
-//        template<class T>
-//        RC checkLeafKeys(IXFileHandle &fh, const char *pageBuffer, const Attribute &attribute, const void *lowKey,
-//                         RID &rid);
-
     protected:
         IndexManager() : pm(&PagedFileManager::instance()) {
 
@@ -116,11 +108,6 @@ namespace PeterDB {
 
         unsigned pageIndex;
         unsigned keyIndex;
-
-//        int low_str_len;
-//        char *low_str;
-//        int high_str_len;
-//        char *high_str;
 
         bool to_very_left;
         bool to_very_right;

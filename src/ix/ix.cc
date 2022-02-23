@@ -65,7 +65,7 @@ namespace PeterDB {
 
     RC
     IndexManager::insertEntry(IXFileHandle &ixFileHandle, const Attribute &attribute, const void *key, const RID &rid) {
-
+        
         return RC::ok;
     }
 
