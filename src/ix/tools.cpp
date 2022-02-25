@@ -9,7 +9,7 @@ namespace PeterDB {
 #define IS_LEAF '\0'
 #define IS_BRANCH '\1'
 
-    unsigned short readKey(const char *pageBuffer) {
+    unsigned short getKeyNum(const char *pageBuffer) {
         unsigned short keys = 0;
         memcpy(&keys, pageBuffer + PAGE_SIZE - 2, sizeof(short));
         return keys;
@@ -17,7 +17,7 @@ namespace PeterDB {
 
     bool checkLeafNode(const char *pageBuffer) {
         unsigned char isLeaf;
-        memcpy(&isLeaf, pageBuffer + PAGE_SIZE - 5, sizeof(char));
+        memcpy(&isLeaf, pageBuffer + PAGE_SIZE - 2 - 2 - 1, sizeof(char));
         if (isLeaf == IS_LEAF) {
             return true;
         }
@@ -26,8 +26,111 @@ namespace PeterDB {
 
     unsigned getNextPage(const char *pageBuffer) {
         unsigned pageNum = 0;
-        memcpy(&pageNum, pageBuffer + PAGE_SIZE - 4 - 4 - 1 - 4, sizeof(int));
+        memcpy(&pageNum, pageBuffer + PAGE_SIZE - 2 - 2 - 1 - 4, sizeof(int));
         return pageNum;
+    }
+
+    unsigned getPrevPage(const char *pageBuffer) {
+        unsigned prevPage = 0;
+        memcpy(&prevPage, pageBuffer + PAGE_SIZE - 2 - 2 - 1 - 4 - 4, sizeof(int));
+        return prevPage;
+    }
+
+    unsigned short getFreeSpace(const char *pageBuffer) {
+        unsigned short freeSpace = 0;
+        memcpy(&freeSpace, pageBuffer + PAGE_SIZE - 2 - 2, sizeof(short));
+        return freeSpace;
+    }
+
+    //keyIndex start from 0, total keyNum start from 1
+    unsigned getIndexPath(const char *pageBuffer, unsigned keyIndex, bool isKeyFixed) {
+        unsigned short keyNum = getKeyNum(pageBuffer);
+        unsigned path = sizeof(int);
+        for (int i = 0; i < keyIndex; i++) {
+            if (isKeyFixed) {
+                path += 2 * sizeof(int);
+            } else {
+                int len = 0;
+                memcpy(&len, pageBuffer + path, sizeof(int));
+                path += len + sizeof(int) + sizeof(int);
+            }
+        }
+        return path;
+    }
+
+    unsigned getLeafPath(const char *pageBuffer, unsigned keyIndex, bool isKeyFixed) {
+        unsigned short keyNum = getKeyNum(pageBuffer);
+        unsigned path = 0;
+        for (int i = 0; i < keyNum; i++) {
+            if (isKeyFixed) {
+                path += 2 * sizeof(int) + sizeof(short);
+            } else {
+                int len = 0;
+                memcpy(&len, pageBuffer + path, sizeof(int));
+                path += len + sizeof(int) + sizeof(int) + sizeof(short);
+            }
+        }
+        return path;
+    }
+
+    //check if key1 is bigger than key2
+    template<class T>
+    bool checkBigger(T &key1, T &key2) {
+        if (typeid(T) == typeid(char *)) {
+            int len1 = 0;
+            memcpy(&len1, key1, sizeof(int));
+            std::string str1(key1 + sizeof(int), len1);
+            int len2 = 0;
+            memcpy(&len2, key2, sizeof(int));
+            std::string str2(key2 + sizeof(int), len2);
+            return str1 > str2;
+        } else {
+            return key1 > key2;
+        }
+    }
+
+    RC updateKeyNum(char *pageBuffer, unsigned short keyNum) {
+        memcpy(pageBuffer + PAGE_SIZE - sizeof(short), &keyNum, sizeof(short));
+        return RC::ok;
+    }
+
+    RC updateFreeSpace(char *pageBuffer, unsigned short freeSpace) {
+        memcpy(pageBuffer + PAGE_SIZE - sizeof(short) - sizeof(short), &freeSpace, sizeof(short));
+        return RC::ok;
+    }
+
+    unsigned getIndexTotalLen(const char *pageBuffer, bool isKeyFixed) {
+        unsigned keyNum = getKeyNum(pageBuffer);
+        return getIndexPath(pageBuffer, keyNum, isKeyFixed);
+//        unsigned totalLen = sizeof(int);
+//        unsigned keyNum = getKeyNum(pageBuffer);
+//        for (int i = 0; i < keyNum; i++) {
+//            if (isKeyFixed) {
+//                totalLen += 2 * sizeof(int);
+//            } else {
+//                int len = 0;
+//                memcpy(&len, pageBuffer + totalLen, sizeof(int));
+//                totalLen += len + sizeof(int) + sizeof(int);
+//            }
+//        }
+//        return totalLen;
+    }
+
+    unsigned getLeafTotalLen(const char *pageBuffer, bool isKeyFixed) {
+        unsigned keyNum = getKeyNum(pageBuffer);
+        return getLeafPath(pageBuffer, keyNum, isKeyFixed);
+//        unsigned totalLen = 0;
+//        unsigned keyNum = getKeyNum(pageBuffer);
+//        for (int i = 0; i < keyNum; i++) {
+//            if (isKeyFixed) {
+//                totalLen += 2 * sizeof(int) + sizeof(short);
+//            } else {
+//                int len = 0;
+//                memcpy(&len, pageBuffer + totalLen, sizeof(int));
+//                totalLen += len + sizeof(int) + sizeof(int) + sizeof(short);
+//            }
+//        }
+//        return totalLen;
     }
 
     RC IndexManager::insertHiddenPage(FILE *fd) {
@@ -39,21 +142,22 @@ namespace PeterDB {
         memcpy(pagebuffer + sizeof(int), &initvalue, sizeof(int));
         memcpy(pagebuffer + 2 * sizeof(int), &initvalue, sizeof(int));
         memcpy(pagebuffer + 3 * sizeof(int), &initvalue, sizeof(int));
+        memcpy(pagebuffer + 4 * sizeof(int), &initvalue, sizeof(int));
         fseek(fd, 0, SEEK_SET);
         fwrite(pagebuffer, sizeof(char), PAGE_SIZE, fd);
         return RC::ok;
     }
 
-    RC IndexManager::insertDummyNode(FILE *fd) {
-        //create hidden page: data = read, write, append counter
-        char pagebuffer[PAGE_SIZE];
-
-        int initvalue = 0;
-        memcpy(pagebuffer, &initvalue, sizeof(int));
-        fseek(fd, PAGE_SIZE, SEEK_SET);
-        fwrite(pagebuffer, sizeof(char), PAGE_SIZE, fd);
-        return RC::ok;
-    }
+//    RC IndexManager::insertDummyNode(FILE *fd) {
+//        //create hidden page: data = read, write, append counter
+//        char pagebuffer[PAGE_SIZE];
+//
+//        int initvalue = 0;
+//        memcpy(pagebuffer, &initvalue, sizeof(int));
+//        fseek(fd, PAGE_SIZE, SEEK_SET);
+//        fwrite(pagebuffer, sizeof(char), PAGE_SIZE, fd);
+//        return RC::ok;
+//    }
 
     RC IndexManager::readHiddenPage(FILE *fd, FileHandle &fileHandle) {
 
@@ -85,15 +189,15 @@ namespace PeterDB {
             return RC::OPEN_FILE_FAIL;
         }
         char pagebuffer[PAGE_SIZE];
-        fseek(fd, PAGE_SIZE, SEEK_SET);
+        fseek(fd, 0, SEEK_SET);
         fread(pagebuffer, 1, PAGE_SIZE, fd);
 
-        memcpy(&root, pagebuffer, sizeof(int));
+        memcpy(&root, pagebuffer + 4 * sizeof(int), sizeof(int));
 
         return RC::ok;
     }
 
-    RC IndexManager::writeHiddenPage(FileHandle &fileHandle) {
+    RC IndexManager::writeHiddenPage(FileHandle &fileHandle, unsigned root) {
         //write back hidden block
         char pagebuffer[PAGE_SIZE];
 
@@ -101,25 +205,26 @@ namespace PeterDB {
         memcpy(pagebuffer + sizeof(int), &fileHandle.writePageCounter, sizeof(int));
         memcpy(pagebuffer + 2 * sizeof(int), &fileHandle.appendPageCounter, sizeof(int));
         memcpy(pagebuffer + 3 * sizeof(int), &fileHandle.totalPage, sizeof(int));
+        memcpy(pagebuffer + 4 * sizeof(int), &root, sizeof(int));
 
         fseek(fileHandle.fd, 0, SEEK_SET);
         fwrite(pagebuffer, 1, PAGE_SIZE, fileHandle.fd);
 
         return RC::ok;
     }
+//
+//    RC IndexManager::writeDummyNode(IXFileHandle &fileHandle) {
+//        char pagebuffer[PAGE_SIZE];
+//
+//        memcpy(pagebuffer, &fileHandle.rootPage, sizeof(int));
+//
+//        fseek(fileHandle.fileHandle.fd, PAGE_SIZE, SEEK_SET);
+//        fwrite(pagebuffer, 1, PAGE_SIZE, fileHandle.fileHandle.fd);
+//
+//        return RC::ok;
+//    }
 
-    RC IndexManager::writeDummyNode(IXFileHandle &fileHandle) {
-        char pagebuffer[PAGE_SIZE];
-
-        memcpy(pagebuffer, &fileHandle.rootPage, sizeof(int));
-
-        fseek(fileHandle.fileHandle.fd, PAGE_SIZE, SEEK_SET);
-        fwrite(pagebuffer, 1, PAGE_SIZE, fileHandle.fileHandle.fd);
-
-        return RC::ok;
-    }
-
-    RC IndexManager::insertNewIndexPage(IXFileHandle &fh, unsigned int &pageNum, bool isLeafNode, bool isKeyFixed) {
+    RC IndexManager::insertNewIndexPage(IXFileHandle &fh, unsigned int &pageNum, bool isLeafNode) {
         char pageBuffer[PAGE_SIZE];
         unsigned short keyNumber = 0;
         unsigned short freeSpace = 0;
@@ -131,7 +236,10 @@ namespace PeterDB {
         //extra 8 bytes for prev page and next page
         if (isLeafNode) {
             freeSpace = PAGE_SIZE - 2 - 2 - 1 - 4 - 4;
+            unsigned nextPageNum = 0;
             memcpy(pageBuffer + PAGE_SIZE - 4, &freeSpace, sizeof(short));
+            memcpy(pageBuffer + PAGE_SIZE - 2 - 2 - 1 - 4, &nextPageNum, sizeof(int));
+            memcpy(pageBuffer + PAGE_SIZE - 2 - 2 - 1 - 4 - 4, &nextPageNum, sizeof(int));
         } else {
             freeSpace = PAGE_SIZE - 2 - 2 - 1;
             memcpy(pageBuffer + PAGE_SIZE - 4, &freeSpace, sizeof(short));
@@ -142,7 +250,6 @@ namespace PeterDB {
         return fh.fileHandle.appendPage(pageBuffer);
     }
 
-    //todo key is null
     RC
     IndexManager::findKeyInLeaf(IXFileHandle &fh, const Attribute &attribute, const void *lowKey, unsigned &pageNum,
                                 unsigned &keyIndex, bool &noMatchKey, bool lowKeyInclusive) {
@@ -205,7 +312,7 @@ namespace PeterDB {
         if (pageBuffer == nullptr) {
             return RC::FD_FAIL;
         }
-        unsigned short keyNum = readKey(pageBuffer);
+        unsigned short keyNum = getKeyNum(pageBuffer);
         bool keyFixed = fh.isKeyFixed;
 
         if (lowKey == nullptr) {
@@ -262,7 +369,7 @@ namespace PeterDB {
         if (pageBuffer == nullptr) {
             return RC::FD_FAIL;
         }
-        unsigned short keyNum = readKey(pageBuffer);
+        unsigned short keyNum = getKeyNum(pageBuffer);
         bool keyFixed = fh.isKeyFixed;
         if (lowKey == nullptr) {
             keyIndex = 0;
@@ -322,12 +429,12 @@ namespace PeterDB {
         return RC::ok;
     }
 
-    //check high key
+    //also check high key
     template<class T>
     RC IX_ScanIterator::getRIDviaIndex(RID &rid, void *key) {
         char pageBuffer[PAGE_SIZE];
         ixFileHandle->fileHandle.readPage(pageIndex, pageBuffer);
-        unsigned short keyNum = readKey(pageBuffer);
+        unsigned short keyNum = getKeyNum(pageBuffer);
         if (keyNum - 1 <= keyIndex) {
             keyIndex = 0;
             pageIndex = getNextPage(pageBuffer);
@@ -409,5 +516,247 @@ namespace PeterDB {
             }
         }
         return RC::RM_EOF;
+    }
+
+    template<class T>
+    RC
+    IndexManager::putChildEntry(IXFileHandle &fh, char *pageBuffer, ChildEntry<T> *newChildEntry, unsigned entryLen) {
+        unsigned short keyNum = getKeyNum(pageBuffer);
+        unsigned short freeSpace = getFreeSpace(pageBuffer);
+        //first page key that is bigger than entry's key
+        unsigned breakKey = 0;
+        //first page number
+        unsigned path = sizeof(int);
+
+        T pageKey;
+        for (; breakKey < keyNum; breakKey++) {
+            unsigned lastPath = path;
+            if (fh.isKeyFixed) {
+                memcpy(&pageKey, pageBuffer + path, sizeof(int));
+                path += sizeof(int);
+            } else {
+                int len = 0;
+                memcpy(&len, pageBuffer + path, sizeof(int));
+                memcpy(&pageKey, pageBuffer + path, len + sizeof(int));
+                path += len + sizeof(int);
+            }
+
+            if (checkBigger(pageKey, newChildEntry->key)) {
+                path = lastPath;
+                break;
+            }
+            //add page num
+            path += sizeof(int);
+        }
+        //shift right
+        unsigned totalLen = getIndexPath(pageBuffer, keyNum, fh.isKeyFixed);
+        memmove(pageBuffer + path + entryLen, pageBuffer + path, totalLen - path);
+
+        if (fh.isKeyFixed) {
+            memcpy(pageBuffer + path, &(newChildEntry->key), entryLen - sizeof(int));
+        } else {
+            memcpy(pageBuffer + path, newChildEntry->key, entryLen - sizeof(int));
+        }
+        path += entryLen - sizeof(int);
+        memcpy(pageBuffer + path, newChildEntry->newPageNum, sizeof(int));
+
+        updateKeyNum(pageBuffer, keyNum + 1);
+        updateFreeSpace(pageBuffer, freeSpace - entryLen);
+    }
+
+    template<class T>
+    RC IndexManager::putLeafEntry(IXFileHandle &fh, char *pageBuffer, Entry<T> *entry, unsigned int entryLen) {
+        unsigned short keyNum = getKeyNum(pageBuffer);
+        unsigned short freeSpace = getFreeSpace(pageBuffer);
+        //first page key that is bigger than entry's key
+        unsigned breakKey = 0;
+        //first page number
+        unsigned path = 0;
+
+        T pageKey;
+        for (; breakKey < keyNum; breakKey++) {
+            unsigned lastPath = path;
+            if (fh.isKeyFixed) {
+                memcpy(&pageKey, pageBuffer + path, sizeof(int));
+                path += sizeof(int);
+            } else {
+                int len = 0;
+                memcpy(&len, pageBuffer + path, sizeof(int));
+                memcpy(&pageKey, pageBuffer + path, len + sizeof(int));
+                path += len + sizeof(int);
+            }
+
+            if (checkBigger(pageKey, entry->key)) {
+                path = lastPath;
+                break;
+            }
+            //add rid
+            path += sizeof(int) + sizeof(short);
+        }
+        //shift right
+        unsigned totalLen = getIndexPath(pageBuffer, keyNum, fh.isKeyFixed);
+        memmove(pageBuffer + path + entryLen, pageBuffer + path, totalLen - path);
+
+        if (fh.isKeyFixed) {
+            memcpy(pageBuffer + path, &(entry->key), entryLen - sizeof(int) - sizeof(short));
+        } else {
+            memcpy(pageBuffer + path, entry->key, entryLen - sizeof(int) - sizeof(short));
+        }
+        path += entryLen - sizeof(int) - sizeof(short);
+        memcpy(pageBuffer + path, entry->rid.pageNum, sizeof(int));
+        path += sizeof(int);
+        memcpy(pageBuffer + path, entry->rid.slotNum, sizeof(short));
+
+        updateKeyNum(pageBuffer, keyNum + 1);
+        updateFreeSpace(pageBuffer, freeSpace - entryLen);
+    }
+
+    template<class T>
+    RC IndexManager::getIndexKey(IXFileHandle &fh, const char *pageBuffer, unsigned short keyIndex, T &key) {
+        unsigned short keyNum = getKeyNum(pageBuffer);
+        if (keyNum == 0) {
+            return RC::RM_EOF;
+        }
+        unsigned path = sizeof(int);
+        unsigned lastPath = path;
+        for (int i = 0; i < keyIndex; ++i) {
+            lastPath = path;
+            if (fh.isKeyFixed) {
+                path += 2 * sizeof(int);
+            } else {
+                int len = 0;
+                memcpy(&len, pageBuffer + path, sizeof(int));
+                path += len + 2 * sizeof(int);
+            }
+        }
+        path = lastPath;
+        if (!fh.isKeyFixed) {
+            int len = 0;
+            memcpy(&len, pageBuffer + path, sizeof(int));
+            key = new char[len + sizeof(int)];
+            memcpy(key, pageBuffer + path, len + sizeof(int));
+        } else {
+            memcpy(&key, pageBuffer + path, sizeof(int));
+        }
+        return RC::ok;
+    }
+
+    template<class T>
+    RC IndexManager::getLeafKey(IXFileHandle &fh, const char *pageBuffer, unsigned short keyIndex, T &key) {
+        unsigned short keyNum = getKeyNum(pageBuffer);
+        if (keyNum == 0) {
+            return RC::RM_EOF;
+        }
+        unsigned path = 0;
+        unsigned lastPath = path;
+        for (int i = 0; i < keyIndex; ++i) {
+            lastPath = path;
+            if (fh.isKeyFixed) {
+                path += 2 * sizeof(int) + sizeof(short);
+            } else {
+                int len = 0;
+                memcpy(&len, pageBuffer + path, sizeof(int));
+                path += len + 2 * sizeof(int) + sizeof(short);
+            }
+        }
+        path = lastPath;
+        if (!fh.isKeyFixed) {
+            int len = 0;
+            memcpy(&len, pageBuffer + path, sizeof(int));
+            key = new char[len + sizeof(int)];
+            memcpy(key, pageBuffer + path, len + sizeof(int));
+        } else {
+            memcpy(&key, pageBuffer + path, sizeof(int));
+        }
+        return RC::ok;
+    }
+
+    //remember newChildEntry should be null
+    template<class T>
+    RC IndexManager::formChildEntry(IXFileHandle &fh, unsigned int newPageNum, ChildEntry<T> *newChildEntry) {
+        if (newChildEntry != nullptr) {
+            return RC::RM_EOF;
+        }
+        char pageBuffer[PAGE_SIZE];
+        fh.fileHandle.readPage(newPageNum, pageBuffer);
+        bool isLeaf = checkLeafNode(pageBuffer);
+
+        T key;
+        if (isLeaf) {
+            getLeafFirstKey(fh, pageBuffer, key);
+            newChildEntry = new ChildEntry<T>;
+            newChildEntry->key = key;
+            newChildEntry->newPageNum = newPageNum;
+        } else {
+            getIndexFirstKey(fh, pageBuffer, key);
+            newChildEntry = new ChildEntry<T>;
+            newChildEntry->key = key;
+            newChildEntry->newPageNum = newPageNum;
+        }
+
+        return RC::ok;
+    }
+
+    //assume 2d+1 keys and 2d+2 pointers in page, first d keys and d+1 pointers stay, last d keys and d+1 pointers move to new page.
+    //and push middle key(newChildEntry) to upper function
+    //todo not insert newChildEntry, need to judge whether this entry belong to previous page or new page. if prev, insert to prev,
+    // delete last entry and insert that entry to next page. vice versa
+    template<class T>
+    RC IndexManager::splitIndexPage(IXFileHandle &fh, unsigned int tarPage, unsigned int &newPage,
+                                    ChildEntry<T> *newChildEntry) {
+        char tarPageBuffer[PAGE_SIZE];
+        fh.fileHandle.readPage(tarPage, tarPageBuffer);
+        unsigned keyNum = getKeyNum(tarPageBuffer);
+        unsigned halfKey = (keyNum + 1) / 2;
+        unsigned short halKeyPath = getIndexPath(tarPageBuffer, halKeyPath, fh.isKeyFixed);
+        unsigned short totalLen = getIndexTotalLen(tarPageBuffer, fh.isKeyFixed);
+        unsigned short tarFreeSpace = getFreeSpace(tarPageBuffer);
+        updateFreeSpace(tarPageBuffer, tarFreeSpace + (totalLen - halKeyPath));
+        updateKeyNum(tarPageBuffer, halfKey);
+        fh.fileHandle.writePage(tarPage, tarPageBuffer);
+
+        unsigned newPageNum = 0;
+        insertNewIndexPage(fh, newPageNum, false);
+        char newPageBuffer[PAGE_SIZE];
+        fh.fileHandle.readPage(newPageNum, newPageBuffer);
+
+        //fill newChildEntry
+        if (fh.isKeyFixed) {
+            memcpy(&newChildEntry->key, tarPageBuffer + halKeyPath, sizeof(int));
+            halKeyPath += sizeof(int);
+        } else {
+            int len = 0;
+            memcpy(&len, tarPageBuffer + halKeyPath, sizeof(int));
+            newChildEntry->key = new char[len + sizeof(int)];
+            memcpy(newChildEntry->key, tarPageBuffer + halKeyPath, len + sizeof(int));
+            halKeyPath += len + sizeof(int);
+        }
+        newChildEntry->newPageNum = newPageNum;
+
+        //move rest to new node
+        memmove(newPageBuffer, tarPageBuffer + halKeyPath, totalLen - halKeyPath);
+        updateKeyNum(newPageBuffer, keyNum - halfKey - 1);
+        updateFreeSpace(newPageBuffer, PAGE_SIZE - (totalLen - halKeyPath) - 2 * sizeof(short) - 1);
+        fh.fileHandle.writePage(newPageNum, newPageBuffer);
+
+        return RC::ok;
+    }
+
+    template<class T>
+    RC IndexManager::splitLeafPage(IXFileHandle &fh, unsigned int tarPage, unsigned int &newPage,
+                                   Entry<T> *entry) {
+        char tarPageBuffer[PAGE_SIZE];
+        fh.fileHandle.readPage(tarPage, tarPageBuffer);
+        unsigned keyNum = getKeyNum(tarPageBuffer);
+        unsigned halfKey = (keyNum + 1) / 2;
+        unsigned short halfPath = getLeafPath(tarPageBuffer, halfKey, fh.isKeyFixed);
+        unsigned short totalLen = getLeafTotalLen(tarPageBuffer, fh.isKeyFixed);
+        unsigned short tarFreeSpace = getFreeSpace(tarPageBuffer);
+        updateFreeSpace(tarPageBuffer, tarFreeSpace + (totalLen - halfPath));
+        updateKeyNum(tarPageBuffer, halfKey);
+        fh.fileHandle.writePage(tarPage, tarPageBuffer);
+
+        //copy and fill entry
+
     }
 };

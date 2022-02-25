@@ -11,6 +11,18 @@
 # define IX_EOF (-1)  // end of the index scan
 
 namespace PeterDB {
+    template<class T>
+    struct ChildEntry {
+        T key;
+        unsigned newPageNum;
+    };
+
+    template<class T>
+    struct Entry {
+        T key;
+        RID rid;
+    };
+
     class IX_ScanIterator;
 
     class IXFileHandle;
@@ -62,17 +74,17 @@ namespace PeterDB {
         //tools
         RC insertHiddenPage(FILE *fd);
 
-        RC insertDummyNode(FILE *fd);
+//        RC insertDummyNode(FILE *fd);
 
         RC readHiddenPage(FILE *fd, FileHandle &fileHandle);
 
         RC readDummyNode(FILE *fd, unsigned &root);
 
-        RC writeHiddenPage(FileHandle &fileHandle);
+        RC writeHiddenPage(FileHandle &fileHandle, unsigned root);
 
         RC writeDummyNode(IXFileHandle &fileHandle);
 
-        RC insertNewIndexPage(IXFileHandle &fh, unsigned &pageNum, bool isLeafNode, bool isKeyFixed);
+        RC insertNewIndexPage(IXFileHandle &fh, unsigned &pageNum, bool isLeafNode);
 
         RC findKeyInLeaf(IXFileHandle &fh, const Attribute &attribute, const void *lowKey, unsigned &pageNum,
                          unsigned &keyIndex, bool &noMatchKey, bool lowKeyInclusive);
@@ -83,6 +95,28 @@ namespace PeterDB {
         leafSearch(IXFileHandle &fh, const Attribute &attribute, const void *lowKey, unsigned &pageNum,
                    unsigned &keyIndex, bool &noMatchKey, bool lowKeyInclusive);
 
+        template<class T>
+        RC putChildEntry(IXFileHandle &fh, char *pageBuffer, ChildEntry<T> *newChildEntry, unsigned entryLen);
+
+        template<class T>
+        RC putLeafEntry(IXFileHandle &fh, char *pageBuffer, Entry<T> *entry, unsigned entryLen);
+
+        //get smallest key in page ,form with pageNum
+        template<class T>
+        RC formChildEntry(IXFileHandle &fh, unsigned pageNum, ChildEntry<T> *newChildEntry);
+
+        //split pageNum , insert a new page
+        template<class T>
+        RC splitIndexPage(IXFileHandle &fh, unsigned tarPage, unsigned &newPage, ChildEntry<T> *newChildEntry);
+
+        template<class T>
+        RC splitLeafPage(IXFileHandle &fh, unsigned tarPage, unsigned &newPage, Entry<T> *entry);
+
+        template<class T>
+        RC getIndexKey(IXFileHandle &fh, const char *pageBuffer, unsigned short keyIndex, T &key);
+
+        template<class T>
+        RC getLeafKey(IXFileHandle &fh, const char *pageBuffer, unsigned short keyIndex, T &key);
 
     protected:
         IndexManager() : pm(&PagedFileManager::instance()) {
