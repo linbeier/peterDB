@@ -1,6 +1,8 @@
 #include "src/include/ix.h"
 
 namespace PeterDB {
+    bool checkLeafNode(const char *pageBuffer);
+
     IndexManager &IndexManager::instance() {
         static IndexManager _index_manager = IndexManager();
         return _index_manager;
@@ -17,7 +19,7 @@ namespace PeterDB {
                 return RC::CREA_FILE_FAIL;
             }
             insertHiddenPage(fd);
-            insertDummyNode(fd);
+//            insertDummyNode(fd);
 
             fclose(fd);
         }
@@ -55,8 +57,8 @@ namespace PeterDB {
         if (ixFileHandle.fileHandle.fd == nullptr) {
             return RC::FD_FAIL;
         } else {
-            writeHiddenPage(ixFileHandle.fileHandle);
-            writeDummyNode(ixFileHandle);
+            writeHiddenPage(ixFileHandle.fileHandle, ixFileHandle.rootPage);
+//            writeDummyNode(ixFileHandle);
             fclose(ixFileHandle.fileHandle.fd);
             ixFileHandle.fileHandle.fd = nullptr;
         }
@@ -65,8 +67,38 @@ namespace PeterDB {
 
     RC
     IndexManager::insertEntry(IXFileHandle &ixFileHandle, const Attribute &attribute, const void *key, const RID &rid) {
-        
+
+        if (attribute.type == TypeReal) {
+            auto *entry = new Entry<float>;
+            memcpy(&entry->key, key, sizeof(int));
+            entry->rid = rid;
+            ChildEntry<float> *childEntry = nullptr;
+            recurInsertEntry<float>(ixFileHandle, ixFileHandle.rootPage, entry, childEntry);
+        } else if (attribute.type == TypeInt) {
+            auto *entry = new Entry<int>;
+            entry->key = *(int *) key;
+            entry->rid = rid;
+            ChildEntry<int> *childEntry = nullptr;
+            recurInsertEntry<int>(ixFileHandle, ixFileHandle.rootPage, entry, childEntry);
+        } else {
+            auto *entry = new Entry<char *>;
+            entry->key = (char *) key;
+            entry->rid = rid;
+            ChildEntry<char *> *childEntry = nullptr;
+            recurInsertEntry<char *>(ixFileHandle, ixFileHandle.rootPage, entry, childEntry);
+        }
         return RC::ok;
+    }
+
+    template<class T>
+    RC IndexManager::recurInsertEntry(IXFileHandle &fh, unsigned int nodePage, Entry<T> *entry,
+                                      ChildEntry<T> *newChildEntry) {
+        char *pageBuffer = new char[PAGE_SIZE];
+        fh.fileHandle.readPage(nodePage, pageBuffer);
+        if (!checkLeafNode(pageBuffer)) {
+            unsigned keyPage = 0;
+            checkIndexKeys<T>(fh, pageBuffer, (T *) entry->key, keyPage);
+        }
     }
 
     RC

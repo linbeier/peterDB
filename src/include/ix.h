@@ -27,13 +27,6 @@ namespace PeterDB {
 
     class IXFileHandle;
 
-    template<class T>
-    RC checkLeafKeys(IXFileHandle &fh, const char *pageBuffer, const Attribute &attribute,
-                     const void *lowKey, unsigned &keyIndex, bool &noMatchKey, bool lowKeyInclusive);
-
-    template<class T>
-    RC checkIndexKeys(IXFileHandle &fh, const char *pageBuffer, const Attribute &attribute,
-                      const void *lowKey, unsigned &pageNum);
 
     class IndexManager {
         PagedFileManager *pm;
@@ -82,7 +75,7 @@ namespace PeterDB {
 
         RC writeHiddenPage(FileHandle &fileHandle, unsigned root);
 
-        RC writeDummyNode(IXFileHandle &fileHandle);
+//        RC writeDummyNode(IXFileHandle &fileHandle);
 
         RC insertNewIndexPage(IXFileHandle &fh, unsigned &pageNum, bool isLeafNode);
 
@@ -103,20 +96,38 @@ namespace PeterDB {
 
         //get smallest key in page ,form with pageNum
         template<class T>
-        RC formChildEntry(IXFileHandle &fh, unsigned pageNum, ChildEntry<T> *newChildEntry);
+        RC formChildEntry(IXFileHandle &fh, unsigned pageNum, ChildEntry<T> *newChildEntry,
+                          std::vector<ChildEntry<T> *> &vec);
 
         //split pageNum , insert a new page
         template<class T>
         RC splitIndexPage(IXFileHandle &fh, unsigned tarPage, unsigned &newPage, ChildEntry<T> *newChildEntry);
 
         template<class T>
-        RC splitLeafPage(IXFileHandle &fh, unsigned tarPage, unsigned &newPage, Entry<T> *entry);
+        RC splitLeafPage(IXFileHandle &fh, unsigned tarPage, unsigned &newPage, Entry<T> *newEntry,
+                         ChildEntry<T> *newChildEntry);
 
         template<class T>
         RC getIndexKey(IXFileHandle &fh, const char *pageBuffer, unsigned short keyIndex, T &key);
 
         template<class T>
         RC getLeafKey(IXFileHandle &fh, const char *pageBuffer, unsigned short keyIndex, T &key);
+
+        template<class T>
+        RC recurInsertEntry(IXFileHandle &fh, unsigned nodePage, Entry<T> *entry, ChildEntry<T> *newChildEntry);
+
+        template<class T>
+        RC checkLeafKeys(IXFileHandle &fh, const char *pageBuffer,
+                         const void *lowKey, unsigned &keyIndex, bool &noMatchKey, bool lowKeyInclusive);
+
+        template<class T>
+        RC checkIndexKeys(IXFileHandle &fh, const char *pageBuffer, const void *lowKey, unsigned &pageNum);
+
+        template<class T>
+        RC delChildEntry(IXFileHandle &fh, char *pageBuffer, ChildEntry<T> *newChildEntry, unsigned entryLen);
+
+        template<class T>
+        RC delLeafEntry(IXFileHandle &fh, char *pageBuffer, Entry<T> *entry, unsigned entryLen);
 
     protected:
         IndexManager() : pm(&PagedFileManager::instance()) {
@@ -185,5 +196,6 @@ namespace PeterDB {
         RC collectCounterValues(unsigned &readPageCount, unsigned &writePageCount, unsigned &appendPageCount);
 
     };
+
 }// namespace PeterDB
 #endif // _ix_h_
