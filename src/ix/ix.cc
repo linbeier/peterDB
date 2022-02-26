@@ -3,6 +3,14 @@
 namespace PeterDB {
     bool checkLeafNode(const char *pageBuffer);
 
+    template<class T>
+    unsigned getChildEntryLen(ChildEntry<T> *newChildEntry, bool isKeyFixed);
+
+    template<class T>
+    unsigned getEntryLen(Entry<T> *newEntry, bool isKeyFixed);
+
+    unsigned short getFreeSpace(const char *pageBuffer);
+
     IndexManager &IndexManager::instance() {
         static IndexManager _index_manager = IndexManager();
         return _index_manager;
@@ -93,11 +101,57 @@ namespace PeterDB {
     template<class T>
     RC IndexManager::recurInsertEntry(IXFileHandle &fh, unsigned int nodePage, Entry<T> *entry,
                                       ChildEntry<T> *newChildEntry) {
-        char *pageBuffer = new char[PAGE_SIZE];
+        char pageBuffer[PAGE_SIZE];
         fh.fileHandle.readPage(nodePage, pageBuffer);
         if (!checkLeafNode(pageBuffer)) {
             unsigned keyPage = 0;
-            checkIndexKeys<T>(fh, pageBuffer, (T *) entry->key, keyPage);
+            checkIndexKeys<T>(fh, pageBuffer, entry->key, keyPage);
+            recurInsertEntry(fh, keyPage, entry, newChildEntry);
+            if (newChildEntry == nullptr) {
+                return RC::ok;
+            } else {
+                //child has split, need to process
+                unsigned entryLen = getChildEntryLen(newChildEntry, fh.isKeyFixed);
+                unsigned freeSpace = getFreeSpace(pageBuffer);
+                if (freeSpace >= entryLen) {
+                    putChildEntry(fh, pageBuffer, newChildEntry, entryLen);
+//                    if (typeid(T) == typeid(char *)) {
+//                        delete newChildEntry->key;
+//                    }
+                    delete newChildEntry;
+                    newChildEntry = nullptr;
+                    return RC::ok;
+                } else {
+                    unsigned newPage = 0;
+                    splitIndexPage(fh, nodePage, newPage, newChildEntry);
+                    unsigned childEntryLen = getChildEntryLen(newChildEntry, fh.isKeyFixed);
+                    if (nodePage == fh.rootPage) {
+                        unsigned newRootPage = 0;
+                        insertNewIndexPage(fh, newRootPage, false);
+                        char newRootBuffer[PAGE_SIZE];
+                        fh.fileHandle.readPage(newRootPage, newRootBuffer);
+                        memcpy(newRootBuffer, &nodePage, sizeof(int));
+                        putChildEntry(fh, newRootBuffer, newChildEntry, childEntryLen);
+
+                        fh.fileHandle.writePage(newRootPage, newRootBuffer);
+                        fh.rootPage = newRootPage;
+                    }
+                    return RC::ok;
+                }
+            }
+        }
+        if (checkLeafNode(pageBuffer)) {
+            unsigned freeSpace = getFreeSpace(pageBuffer);
+            unsigned entryLen = getEntryLen(entry, fh.isKeyFixed);
+            if (freeSpace >= entryLen) {
+                putLeafEntry(fh, pageBuffer, entry, entryLen);
+                newChildEntry = nullptr;
+                return RC::ok;
+            } else {
+                unsigned newPageNum = 0;
+                splitLeafPage(fh, nodePage, newPageNum, entry, newChildEntry);
+                return RC::ok;
+            }
         }
     }
 
