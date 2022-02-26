@@ -1,15 +1,16 @@
 #include "src/include/ix.h"
+#include "src/ix/tools.cpp"
 
 namespace PeterDB {
-    bool checkLeafNode(const char *pageBuffer);
-
-    template<class T>
-    unsigned getChildEntryLen(ChildEntry<T> *newChildEntry, bool isKeyFixed);
-
-    template<class T>
-    unsigned getEntryLen(Entry<T> *newEntry, bool isKeyFixed);
-
-    unsigned short getFreeSpace(const char *pageBuffer);
+//    bool checkLeafNode(const char *pageBuffer);
+//
+//    template<class T>
+//    unsigned getChildEntryLen(ChildEntry<T> *newChildEntry, bool isKeyFixed);
+//
+//    template<class T>
+//    unsigned getEntryLen(Entry<T> *newEntry, bool isKeyFixed);
+//
+//    unsigned short getFreeSpace(const char *pageBuffer);
 
     IndexManager &IndexManager::instance() {
         static IndexManager _index_manager = IndexManager();
@@ -78,7 +79,7 @@ namespace PeterDB {
 
         if (attribute.type == TypeReal) {
             auto *entry = new Entry<float>;
-            memcpy(&entry->key, key, sizeof(int));
+            entry->key = *(float *) key;
             entry->rid = rid;
             ChildEntry<float> *childEntry = nullptr;
             recurInsertEntry<float>(ixFileHandle, ixFileHandle.rootPage, entry, childEntry);
@@ -89,11 +90,11 @@ namespace PeterDB {
             ChildEntry<int> *childEntry = nullptr;
             recurInsertEntry<int>(ixFileHandle, ixFileHandle.rootPage, entry, childEntry);
         } else {
-            auto *entry = new Entry<char *>;
+            auto *entry = new EntryStr;
             entry->key = (char *) key;
             entry->rid = rid;
-            ChildEntry<char *> *childEntry = nullptr;
-            recurInsertEntry<char *>(ixFileHandle, ixFileHandle.rootPage, entry, childEntry);
+            ChildEntryStr *childEntry = nullptr;
+            recurInsertEntryStr(ixFileHandle, ixFileHandle.rootPage, entry, childEntry);
         }
         return RC::ok;
     }
@@ -105,26 +106,23 @@ namespace PeterDB {
         fh.fileHandle.readPage(nodePage, pageBuffer);
         if (!checkLeafNode(pageBuffer)) {
             unsigned keyPage = 0;
-            checkIndexKeys<T>(fh, pageBuffer, entry->key, keyPage);
+            checkIndexKeys<T>(fh, pageBuffer, &entry->key, keyPage);
             recurInsertEntry(fh, keyPage, entry, newChildEntry);
             if (newChildEntry == nullptr) {
                 return RC::ok;
             } else {
                 //child has split, need to process
-                unsigned entryLen = getChildEntryLen(newChildEntry, fh.isKeyFixed);
+                unsigned entryLen = getChildEntryLen(newChildEntry);
                 unsigned freeSpace = getFreeSpace(pageBuffer);
                 if (freeSpace >= entryLen) {
                     putChildEntry(fh, pageBuffer, newChildEntry, entryLen);
-//                    if (typeid(T) == typeid(char *)) {
-//                        delete newChildEntry->key;
-//                    }
                     delete newChildEntry;
                     newChildEntry = nullptr;
                     return RC::ok;
                 } else {
                     unsigned newPage = 0;
                     splitIndexPage(fh, nodePage, newPage, newChildEntry);
-                    unsigned childEntryLen = getChildEntryLen(newChildEntry, fh.isKeyFixed);
+                    unsigned childEntryLen = getChildEntryLen(newChildEntry);
                     if (nodePage == fh.rootPage) {
                         unsigned newRootPage = 0;
                         insertNewIndexPage(fh, newRootPage, false);
@@ -142,7 +140,7 @@ namespace PeterDB {
         }
         if (checkLeafNode(pageBuffer)) {
             unsigned freeSpace = getFreeSpace(pageBuffer);
-            unsigned entryLen = getEntryLen(entry, fh.isKeyFixed);
+            unsigned entryLen = getEntryLen(entry);
             if (freeSpace >= entryLen) {
                 putLeafEntry(fh, pageBuffer, entry, entryLen);
                 newChildEntry = nullptr;
@@ -150,6 +148,59 @@ namespace PeterDB {
             } else {
                 unsigned newPageNum = 0;
                 splitLeafPage(fh, nodePage, newPageNum, entry, newChildEntry);
+                return RC::ok;
+            }
+        }
+    }
+
+    RC IndexManager::recurInsertEntryStr(IXFileHandle &fh, unsigned int nodePage, EntryStr *entry,
+                                         ChildEntryStr *newChildEntry) {
+        char pageBuffer[PAGE_SIZE];
+        fh.fileHandle.readPage(nodePage, pageBuffer);
+        if (!checkLeafNode(pageBuffer)) {
+            unsigned keyPage = 0;
+            checkIndexKeysStr(fh, pageBuffer, entry->key, keyPage);
+            recurInsertEntryStr(fh, keyPage, entry, newChildEntry);
+            if (newChildEntry == nullptr) {
+                return RC::ok;
+            } else {
+                //child has split, need to process
+                unsigned entryLen = getChildEntryLenStr(newChildEntry);
+                unsigned freeSpace = getFreeSpace(pageBuffer);
+                if (freeSpace >= entryLen) {
+                    putChildEntryStr(fh, pageBuffer, newChildEntry, entryLen);
+                    delete newChildEntry;
+                    newChildEntry = nullptr;
+                    return RC::ok;
+                } else {
+                    unsigned newPage = 0;
+                    splitIndexPageStr(fh, nodePage, newPage, newChildEntry);
+                    unsigned childEntryLen = getChildEntryLenStr(newChildEntry);
+                    if (nodePage == fh.rootPage) {
+                        unsigned newRootPage = 0;
+                        insertNewIndexPage(fh, newRootPage, false);
+                        char newRootBuffer[PAGE_SIZE];
+                        fh.fileHandle.readPage(newRootPage, newRootBuffer);
+                        memcpy(newRootBuffer, &nodePage, sizeof(int));
+                        putChildEntryStr(fh, newRootBuffer, newChildEntry, childEntryLen);
+
+                        fh.fileHandle.writePage(newRootPage, newRootBuffer);
+                        fh.rootPage = newRootPage;
+                    }
+                    return RC::ok;
+                }
+            }
+        }
+        if (checkLeafNode(pageBuffer)) {
+            unsigned freeSpace = getFreeSpace(pageBuffer);
+            unsigned entryLen = getEntryLenStr(entry);
+            if (freeSpace >= entryLen) {
+                putLeafEntryStr(fh, pageBuffer, entry, entryLen);
+                newChildEntry = nullptr;
+                return RC::ok;
+            } else {
+                unsigned newPageNum = 0;
+                splitLeafPageStr(fh, nodePage, newPageNum, entry, newChildEntry);
                 return RC::ok;
             }
         }
@@ -199,6 +250,7 @@ namespace PeterDB {
     }
 
     RC IndexManager::printBTree(IXFileHandle &ixFileHandle, const Attribute &attribute, std::ostream &out) const {
+        
     }
 
     IX_ScanIterator::IX_ScanIterator() : ixFileHandle(nullptr), lowKey(nullptr), highKey(nullptr), closed(false),
@@ -217,7 +269,7 @@ namespace PeterDB {
         } else if (attribute.type == TypeReal) {
             return getRIDviaIndex<float>(rid, key);
         } else {
-            return getRIDviaIndex<char *>(rid, key);
+            return getRIDviaIndexStr(rid, key);
         }
         return RC::ok;
     }

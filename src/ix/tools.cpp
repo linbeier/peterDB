@@ -54,31 +54,37 @@ namespace PeterDB {
     }
 
     template<class T>
-    unsigned getChildEntryLen(ChildEntry<T> *newChildEntry, bool isKeyFixed) {
+    unsigned getChildEntryLen(ChildEntry<T> *newChildEntry) {
         if (newChildEntry == nullptr) {
             return 0;
         }
-        unsigned len = 0;
-        if (isKeyFixed) {
-            return 2 * sizeof(int);
-        } else {
-            memcpy(&len, newChildEntry->key, sizeof(int));
-            return len + 2 * sizeof(int);
+        return 2 * sizeof(int);
+    }
+
+    unsigned getChildEntryLenStr(ChildEntryStr *newChildEntry) {
+        if (newChildEntry == nullptr) {
+            return 0;
         }
+        int len = 0;
+        memcpy(&len, newChildEntry->key, sizeof(int));
+        return len + 2 * sizeof(int);
     }
 
     template<class T>
-    unsigned getEntryLen(Entry<T> *newEntry, bool isKeyFixed) {
+    unsigned getEntryLen(Entry<T> *newEntry) {
+        if (newEntry == nullptr) {
+            return 0;
+        }
+        return 2 * sizeof(int) + sizeof(short);
+    }
+
+    unsigned getEntryLenStr(EntryStr *newEntry) {
         if (newEntry == nullptr) {
             return 0;
         }
         unsigned len = 0;
-        if (isKeyFixed) {
-            return 2 * sizeof(int) + sizeof(short);
-        } else {
-            memcpy(&len, newEntry->key, sizeof(int));
-            return len + 2 * sizeof(int) + sizeof(short);
-        }
+        memcpy(&len, newEntry->key, sizeof(int));
+        return len + 2 * sizeof(int) + sizeof(short);
     }
 
     //keyIndex start from 0, total keyNum start from 1
@@ -115,33 +121,33 @@ namespace PeterDB {
     //check if key1 is bigger than key2
     template<class T>
     bool checkBigger(T &key1, T &key2) {
-        if (typeid(T) == typeid(char *)) {
-            int len1 = 0;
-            memcpy(&len1, key1, sizeof(int));
-            std::string str1(key1 + sizeof(int), len1);
-            int len2 = 0;
-            memcpy(&len2, key2, sizeof(int));
-            std::string str2(key2 + sizeof(int), len2);
-            return str1 > str2;
-        } else {
-            return key1 > key2;
-        }
+        return key1 > key2;
     }
 
-    template<class T>
-    bool checkEqual(T &key1, T &key2) {
-        if (typeid(T) == typeid(char *)) {
-            int len1 = 0;
-            memcpy(&len1, key1, sizeof(int));
-            std::string str1(key1 + sizeof(int), len1);
-            int len2 = 0;
-            memcpy(&len2, key2, sizeof(int));
-            std::string str2(key2 + sizeof(int), len2);
-            return str1 == str2;
-        } else {
-            return key1 == key2;
-        }
+    bool checkBiggerStr(char *key1, char *key2) {
+        int len1 = 0;
+        memcpy(&len1, key1, sizeof(int));
+        std::string str1(key1 + sizeof(int), len1);
+        int len2 = 0;
+        memcpy(&len2, key2, sizeof(int));
+        std::string str2(key2 + sizeof(int), len2);
+        return str1 > str2;
     }
+
+//    template<class T>
+//    bool checkEqual(T &key1, T &key2) {
+//        if (typeid(T) == typeid(char *)) {
+//            int len1 = 0;
+//            memcpy(&len1, key1, sizeof(int));
+//            std::string str1(key1 + sizeof(int), len1);
+//            int len2 = 0;
+//            memcpy(&len2, key2, sizeof(int));
+//            std::string str2(key2 + sizeof(int), len2);
+//            return str1 == str2;
+//        } else {
+//            return key1 == key2;
+//        }
+//    }
 
     RC updateKeyNum(char *pageBuffer, unsigned short keyNum) {
         memcpy(pageBuffer + PAGE_SIZE - sizeof(short), &keyNum, sizeof(short));
@@ -336,7 +342,7 @@ namespace PeterDB {
             checkIndexKeys<float>(fh, pageBuffer, lowKey, pageNum);
             return treeSearch(fh, attribute, lowKey, pageNum);
         } else {
-            checkIndexKeys<char *>(fh, pageBuffer, lowKey, pageNum);
+            checkIndexKeysStr(fh, pageBuffer, lowKey, pageNum);
             return treeSearch(fh, attribute, lowKey, pageNum);
         }
     }
@@ -352,7 +358,7 @@ namespace PeterDB {
         } else if (attribute.type == TypeReal) {
             re = checkLeafKeys<float>(fh, pageBuffer, lowKey, keyIndex, noMatchKey, lowKeyInclusive);
         } else {
-            re = checkLeafKeys<char *>(fh, pageBuffer, lowKey, keyIndex, noMatchKey, lowKeyInclusive);
+            re = checkLeafKeysStr(fh, pageBuffer, lowKey, keyIndex, noMatchKey, lowKeyInclusive);
         }
 
         if (re != RC::ok) {
@@ -362,8 +368,7 @@ namespace PeterDB {
     }
 
     template<class T>
-    RC IndexManager::checkIndexKeys(IXFileHandle &fh, const char *pageBuffer,
-                                    const void *lowKey, unsigned &pageNum) {
+    RC IndexManager::checkIndexKeys(IXFileHandle &fh, const char *pageBuffer, const void *lowKey, unsigned &pageNum) {
         if (pageBuffer == nullptr) {
             return RC::FD_FAIL;
         }
@@ -377,46 +382,54 @@ namespace PeterDB {
 
         T key;
 
-        if (keyFixed) {
-
-            for (int i = 0; i < keyNum; i++) {
-                memcpy(&key, pageBuffer + 2 * sizeof(int) * i + sizeof(int), sizeof(int));
-                if (*(T *) lowKey < key) {
-                    memcpy(&pageNum, pageBuffer + 2 * sizeof(int) * i, sizeof(int));
-                    return RC::ok;
-                }
+        for (int i = 0; i < keyNum; i++) {
+            memcpy(&key, pageBuffer + 2 * sizeof(int) * i + sizeof(int), sizeof(int));
+            if (*(T *) lowKey < key) {
+                memcpy(&pageNum, pageBuffer + 2 * sizeof(int) * i, sizeof(int));
+                return RC::ok;
             }
-
-            memcpy(&pageNum, pageBuffer + 2 * sizeof(int) * keyNum, sizeof(int));
-            return RC::ok;
-
-        } else {
-            int path = sizeof(int);
-            int lowKeyLen = 0;
-            memcpy(&lowKeyLen, lowKey, sizeof(int));
-            std::string lowKeyStr((const char *) lowKey + sizeof(int), lowKeyLen);
-
-            for (int i = 0; i < keyNum; i++) {
-                int len = 0;
-                memcpy(&len, pageBuffer + path, sizeof(int));
-                path += sizeof(int);
-
-                std::string pageKey(pageBuffer + path, len);
-                path += len;
-                //find first key bigger than lowkey return page number
-                if (pageKey > lowKeyStr) {
-                    memcpy(&pageNum, pageBuffer + path - len - 2 * sizeof(int), sizeof(int));
-                    return RC::ok;
-                }
-
-                path += sizeof(int);
-            }
-
-            memcpy(&pageNum, pageBuffer + path - sizeof(int), sizeof(int));
-            return RC::ok;
-
         }
+
+        memcpy(&pageNum, pageBuffer + 2 * sizeof(int) * keyNum, sizeof(int));
+        return RC::ok;
     }
+
+    RC IndexManager::checkIndexKeysStr(IXFileHandle &fh, const char *pageBuffer, const void *lowKey,
+                                       unsigned int &pageNum) {
+        if (pageBuffer == nullptr) {
+            return RC::FD_FAIL;
+        }
+        unsigned short keyNum = getKeyNum(pageBuffer);
+        if (lowKey == nullptr) {
+            memcpy(&pageNum, pageBuffer, sizeof(int));
+            return RC::ok;
+        }
+
+        int path = sizeof(int);
+        int lowKeyLen = 0;
+        memcpy(&lowKeyLen, lowKey, sizeof(int));
+        std::string lowKeyStr((const char *) lowKey + sizeof(int), lowKeyLen);
+
+        for (int i = 0; i < keyNum; i++) {
+            int len = 0;
+            memcpy(&len, pageBuffer + path, sizeof(int));
+            path += sizeof(int);
+
+            std::string pageKey(pageBuffer + path, len);
+            path += len;
+            //find first key bigger than lowkey return page number
+            if (pageKey > lowKeyStr) {
+                memcpy(&pageNum, pageBuffer + path - len - 2 * sizeof(int), sizeof(int));
+                return RC::ok;
+            }
+
+            path += sizeof(int);
+        }
+
+        memcpy(&pageNum, pageBuffer + path - sizeof(int), sizeof(int));
+        return RC::ok;
+    }
+
 
     template<class T>
     RC IndexManager::checkLeafKeys(IXFileHandle &fh, const char *pageBuffer,
@@ -432,52 +445,64 @@ namespace PeterDB {
         }
 
         T key;
+        for (int i = 0; i < keyNum; i++) {
+            memcpy(&key, pageBuffer + (sizeof(int) + sizeof(int) + sizeof(short)) * i, sizeof(int));
 
-        if (keyFixed) {
-            for (int i = 0; i < keyNum; i++) {
-                memcpy(&key, pageBuffer + (sizeof(int) + sizeof(int) + sizeof(short)) * i, sizeof(int));
+            if (lowKeyInclusive) {
+                if (*(T *) lowKey <= key) {
+                    keyIndex = i;
+                    return RC::ok;
+                }
+            } else {
+                if (*(T *) lowKey < key) {
+                    keyIndex = i;
+                    return RC::ok;
+                }
+            }
+        }
+        //find nothing matched in leaf nodes
+        noMatchKey = true;
+        return RC::ok;
+    }
 
-                if (lowKeyInclusive) {
-                    if (*(T *) lowKey <= key) {
-                        keyIndex = i;
-                        return RC::ok;
-                    }
-                } else {
-                    if (*(T *) lowKey < key) {
-                        keyIndex = i;
-                        return RC::ok;
-                    }
+    RC IndexManager::checkLeafKeysStr(IXFileHandle &fh, const char *pageBuffer, const void *lowKey,
+                                      unsigned int &keyIndex, bool &noMatchKey, bool lowKeyInclusive) {
+        if (pageBuffer == nullptr) {
+            return RC::FD_FAIL;
+        }
+        unsigned short keyNum = getKeyNum(pageBuffer);
+        bool keyFixed = fh.isKeyFixed;
+        if (lowKey == nullptr) {
+            keyIndex = 0;
+            return RC::ok;
+        }
+
+        int path = 0;
+        int lowKeyLen = 0;
+        memcpy(&lowKeyLen, lowKey, sizeof(int));
+        std::string lowKeyStr((const char *) lowKey + sizeof(int), lowKeyLen);
+
+        for (int i = 0; i < keyNum; i++) {
+            int len = 0;
+            memcpy(&len, pageBuffer + path, sizeof(int));
+            path += sizeof(int);
+
+            std::string pageKey(pageBuffer + path, len);
+            path += len;
+            //find first key equal to lowkey return page number
+            if (lowKeyInclusive) {
+                if (lowKeyStr <= pageKey) {
+                    keyIndex = i;
+                    return RC::ok;
+                }
+            } else {
+                if (lowKeyStr < pageKey) {
+                    keyIndex = i;
+                    return RC::ok;
                 }
             }
 
-        } else {
-            int path = 0;
-            int lowKeyLen = 0;
-            memcpy(&lowKeyLen, lowKey, sizeof(int));
-            std::string lowKeyStr((const char *) lowKey + sizeof(int), lowKeyLen);
-
-            for (int i = 0; i < keyNum; i++) {
-                int len = 0;
-                memcpy(&len, pageBuffer + path, sizeof(int));
-                path += sizeof(int);
-
-                std::string pageKey(pageBuffer + path, len);
-                path += len;
-                //find first key equal to lowkey return page number
-                if (lowKeyInclusive) {
-                    if (lowKeyStr <= pageKey) {
-                        keyIndex = i;
-                        return RC::ok;
-                    }
-                } else {
-                    if (lowKeyStr < pageKey) {
-                        keyIndex = i;
-                        return RC::ok;
-                    }
-                }
-
-                path += sizeof(int) + sizeof(short);
-            }
+            path += sizeof(int) + sizeof(short);
         }
         //find nothing matched in leaf nodes
         noMatchKey = true;
@@ -490,16 +515,24 @@ namespace PeterDB {
         char pageBuffer[PAGE_SIZE];
         ixFileHandle->fileHandle.readPage(pageIndex, pageBuffer);
         unsigned short keyNum = getKeyNum(pageBuffer);
-        if (keyNum - 1 <= keyIndex) {
+        if (keyNum - 1 < keyIndex) {
             keyIndex = 0;
             pageIndex = getNextPage(pageBuffer);
             if (pageIndex == NULL_PAGE)return RM_EOF;
             return getRIDviaIndex<T>(rid, key);
         }
 
-        if (attribute.type == TypeReal || attribute.type == TypeInt) {
-            memcpy(key, pageBuffer + (sizeof(int) + sizeof(int) + sizeof(short)) * keyIndex, sizeof(int));
-            if (highKey == nullptr) {
+        memcpy(key, pageBuffer + (sizeof(int) + sizeof(int) + sizeof(short)) * keyIndex, sizeof(int));
+        if (highKey == nullptr) {
+            memcpy(&rid.pageNum, pageBuffer + (sizeof(int) + sizeof(int) + sizeof(short)) * keyIndex
+                                 + sizeof(int), sizeof(int));
+            memcpy(&rid.slotNum, pageBuffer + (sizeof(int) + sizeof(int) + sizeof(short)) * keyIndex
+                                 + sizeof(int) + sizeof(int), sizeof(short));
+            keyIndex++;
+            return RC::ok;
+        }
+        if (highKeyInclusive) {
+            if (*(T *) highKey >= *(T *) key) {
                 memcpy(&rid.pageNum, pageBuffer + (sizeof(int) + sizeof(int) + sizeof(short)) * keyIndex
                                      + sizeof(int), sizeof(int));
                 memcpy(&rid.slotNum, pageBuffer + (sizeof(int) + sizeof(int) + sizeof(short)) * keyIndex
@@ -507,67 +540,70 @@ namespace PeterDB {
                 keyIndex++;
                 return RC::ok;
             }
-            if (highKeyInclusive) {
-                if (*(T *) highKey >= *(T *) key) {
-                    memcpy(&rid.pageNum, pageBuffer + (sizeof(int) + sizeof(int) + sizeof(short)) * keyIndex
-                                         + sizeof(int), sizeof(int));
-                    memcpy(&rid.slotNum, pageBuffer + (sizeof(int) + sizeof(int) + sizeof(short)) * keyIndex
-                                         + sizeof(int) + sizeof(int), sizeof(short));
-                    keyIndex++;
-                    return RC::ok;
-                }
-            } else {
-                if (*(T *) highKey > *(T *) key) {
-                    memcpy(&rid.pageNum,
-                           pageBuffer + (sizeof(int) + sizeof(int) + sizeof(short)) * keyIndex + sizeof(int),
-                           sizeof(int));
-                    memcpy(&rid.slotNum, pageBuffer + (sizeof(int) + sizeof(int) + sizeof(short)) * keyIndex
-                                         + sizeof(int) + sizeof(int), sizeof(short));
-                    keyIndex++;
-                    return RC::ok;
-                }
-            }
         } else {
-            int path = 0;
-            int highKeyLen = 0;
-            memcpy(&highKeyLen, highKey, sizeof(int));
-            std::string highKeyStr((const char *) highKey + sizeof(int), highKeyLen);
-
-            for (int i = 0; i < keyIndex; i++) {
-                int len = 0;
-                memcpy(&len, pageBuffer + path, sizeof(int));
-                path += sizeof(int);
-                path += len;
-                path += sizeof(int) + sizeof(short);
+            if (*(T *) highKey > *(T *) key) {
+                memcpy(&rid.pageNum,
+                       pageBuffer + (sizeof(int) + sizeof(int) + sizeof(short)) * keyIndex + sizeof(int),
+                       sizeof(int));
+                memcpy(&rid.slotNum, pageBuffer + (sizeof(int) + sizeof(int) + sizeof(short)) * keyIndex
+                                     + sizeof(int) + sizeof(int), sizeof(short));
+                keyIndex++;
+                return RC::ok;
             }
-            //reach keyIndex
+        }
+        return RC::RM_EOF;
+    }
+
+    RC IX_ScanIterator::getRIDviaIndexStr(RID &rid, void *key) {
+        char pageBuffer[PAGE_SIZE];
+        ixFileHandle->fileHandle.readPage(pageIndex, pageBuffer);
+        unsigned short keyNum = getKeyNum(pageBuffer);
+        if (keyNum - 1 < keyIndex) {
+            keyIndex = 0;
+            pageIndex = getNextPage(pageBuffer);
+            if (pageIndex == NULL_PAGE)return RM_EOF;
+            return getRIDviaIndexStr(rid, key);
+        }
+
+        int path = 0;
+        int highKeyLen = 0;
+        memcpy(&highKeyLen, highKey, sizeof(int));
+        std::string highKeyStr((const char *) highKey + sizeof(int), highKeyLen);
+
+        for (int i = 0; i < keyIndex; i++) {
             int len = 0;
             memcpy(&len, pageBuffer + path, sizeof(int));
-            memcpy(&key, pageBuffer + path, len + sizeof(int));
             path += sizeof(int);
-            std::string pageKey(pageBuffer + path, len);
             path += len;
-            //find first key equal to lowkey return page number
-            if (highKey == nullptr) {
+            path += sizeof(int) + sizeof(short);
+        }
+        //reach keyIndex
+        int len = 0;
+        memcpy(&len, pageBuffer + path, sizeof(int));
+        memcpy(&key, pageBuffer + path, len + sizeof(int));
+        path += sizeof(int);
+        std::string pageKey(pageBuffer + path, len);
+        path += len;
+        //find first key equal to lowkey return page number
+        if (highKey == nullptr) {
+            memcpy(&rid.pageNum, pageBuffer + path, sizeof(int));
+            memcpy(&rid.slotNum, pageBuffer + path + sizeof(int), sizeof(short));
+            keyIndex++;
+            return RC::ok;
+        }
+        if (highKeyInclusive) {
+            if (pageKey <= highKeyStr) {
                 memcpy(&rid.pageNum, pageBuffer + path, sizeof(int));
                 memcpy(&rid.slotNum, pageBuffer + path + sizeof(int), sizeof(short));
                 keyIndex++;
                 return RC::ok;
             }
-            if (highKeyInclusive) {
-                if (pageKey <= highKeyStr) {
-                    memcpy(&rid.pageNum, pageBuffer + path, sizeof(int));
-                    memcpy(&rid.slotNum, pageBuffer + path + sizeof(int), sizeof(short));
-                    keyIndex++;
-                    return RC::ok;
-                }
-            } else {
-                if (pageKey < highKeyStr) {
-                    memcpy(&rid.pageNum, pageBuffer + path, sizeof(int));
-                    memcpy(&rid.slotNum, pageBuffer + path + sizeof(int), sizeof(short));
-                    keyIndex++;
-                    return RC::ok;
-                }
+        } else {
+            if (pageKey < highKeyStr) {
+                memcpy(&rid.pageNum, pageBuffer + path, sizeof(int));
+                memcpy(&rid.slotNum, pageBuffer + path + sizeof(int), sizeof(short));
+                keyIndex++;
+                return RC::ok;
             }
         }
         return RC::RM_EOF;
@@ -586,15 +622,8 @@ namespace PeterDB {
         T pageKey;
         for (; breakKey < keyNum; breakKey++) {
             unsigned lastPath = path;
-            if (fh.isKeyFixed) {
-                memcpy(&pageKey, pageBuffer + path, sizeof(int));
-                path += sizeof(int);
-            } else {
-                int len = 0;
-                memcpy(&len, pageBuffer + path, sizeof(int));
-                memcpy(&pageKey, pageBuffer + path, len + sizeof(int));
-                path += len + sizeof(int);
-            }
+            memcpy(&pageKey, pageBuffer + path, sizeof(int));
+            path += sizeof(int);
 
             if (checkBigger(pageKey, newChildEntry->key)) {
                 path = lastPath;
@@ -607,16 +636,58 @@ namespace PeterDB {
         unsigned totalLen = getIndexPath(pageBuffer, keyNum, fh.isKeyFixed);
         memmove(pageBuffer + path + entryLen, pageBuffer + path, totalLen - path);
 
-        if (fh.isKeyFixed) {
-            memcpy(pageBuffer + path, &(newChildEntry->key), entryLen - sizeof(int));
-        } else {
-            memcpy(pageBuffer + path, newChildEntry->key, entryLen - sizeof(int));
-        }
+        memcpy(pageBuffer + path, &(newChildEntry->key), entryLen - sizeof(int));
+
         path += entryLen - sizeof(int);
-        memcpy(pageBuffer + path, newChildEntry->newPageNum, sizeof(int));
+        memcpy(pageBuffer + path, &(newChildEntry->newPageNum), sizeof(int));
 
         updateKeyNum(pageBuffer, keyNum + 1);
         updateFreeSpace(pageBuffer, freeSpace - entryLen);
+
+        return RC::ok;
+    }
+
+    RC IndexManager::putChildEntryStr(IXFileHandle &fh, char *pageBuffer, ChildEntryStr *newChildEntry,
+                                      unsigned int entryLen) {
+        unsigned short keyNum = getKeyNum(pageBuffer);
+        unsigned short freeSpace = getFreeSpace(pageBuffer);
+        //first page key that is bigger than entry's key
+        unsigned breakKey = 0;
+        //first page number
+        unsigned path = sizeof(int);
+
+        char *pageKey;
+        for (; breakKey < keyNum; breakKey++) {
+            unsigned lastPath = path;
+//            memcpy(&pageKey, pageBuffer + path, sizeof(int));
+//            path += sizeof(int);
+            int len = 0;
+            memcpy(&len, pageBuffer + path, sizeof(int));
+            pageKey = new char[len + sizeof(int)];
+            memcpy(&pageKey, pageBuffer + path, len + sizeof(int));
+            path += len + sizeof(int);
+
+            if (checkBiggerStr(pageKey, newChildEntry->key)) {
+                path = lastPath;
+                break;
+            }
+            //add page num
+            path += sizeof(int);
+            delete[]pageKey;
+        }
+        //shift right
+        unsigned totalLen = getIndexPath(pageBuffer, keyNum, fh.isKeyFixed);
+        memmove(pageBuffer + path + entryLen, pageBuffer + path, totalLen - path);
+
+        memcpy(pageBuffer + path, newChildEntry->key, entryLen - sizeof(int));
+
+        path += entryLen - sizeof(int);
+        memcpy(pageBuffer + path, &(newChildEntry->newPageNum), sizeof(int));
+
+        updateKeyNum(pageBuffer, keyNum + 1);
+        updateFreeSpace(pageBuffer, freeSpace - entryLen);
+
+        return RC::ok;
     }
 
     template<class T>
@@ -631,15 +702,8 @@ namespace PeterDB {
         T pageKey;
         for (; breakKey < keyNum; breakKey++) {
             unsigned lastPath = path;
-            if (fh.isKeyFixed) {
-                memcpy(&pageKey, pageBuffer + path, sizeof(int));
-                path += sizeof(int);
-            } else {
-                int len = 0;
-                memcpy(&len, pageBuffer + path, sizeof(int));
-                memcpy(&pageKey, pageBuffer + path, len + sizeof(int));
-                path += len + sizeof(int);
-            }
+            memcpy(&pageKey, pageBuffer + path, sizeof(int));
+            path += sizeof(int);
 
             if (checkBigger(pageKey, entry->key)) {
                 path = lastPath;
@@ -652,18 +716,60 @@ namespace PeterDB {
         unsigned totalLen = getIndexPath(pageBuffer, keyNum, fh.isKeyFixed);
         memmove(pageBuffer + path + entryLen, pageBuffer + path, totalLen - path);
 
-        if (fh.isKeyFixed) {
-            memcpy(pageBuffer + path, &(entry->key), entryLen - sizeof(int) - sizeof(short));
-        } else {
-            memcpy(pageBuffer + path, entry->key, entryLen - sizeof(int) - sizeof(short));
-        }
+        memcpy(pageBuffer + path, &(entry->key), entryLen - sizeof(int) - sizeof(short));
+
         path += entryLen - sizeof(int) - sizeof(short);
-        memcpy(pageBuffer + path, entry->rid.pageNum, sizeof(int));
+        memcpy(pageBuffer + path, &(entry->rid.pageNum), sizeof(int));
         path += sizeof(int);
-        memcpy(pageBuffer + path, entry->rid.slotNum, sizeof(short));
+        memcpy(pageBuffer + path, &(entry->rid.slotNum), sizeof(short));
 
         updateKeyNum(pageBuffer, keyNum + 1);
         updateFreeSpace(pageBuffer, freeSpace - entryLen);
+
+        return RC::ok;
+    }
+
+    RC IndexManager::putLeafEntryStr(IXFileHandle &fh, char *pageBuffer, EntryStr *entry, unsigned int entryLen) {
+        unsigned short keyNum = getKeyNum(pageBuffer);
+        unsigned short freeSpace = getFreeSpace(pageBuffer);
+        //first page key that is bigger than entry's key
+        unsigned breakKey = 0;
+        //first page number
+        unsigned path = 0;
+
+        char *pageKey;
+        for (; breakKey < keyNum; breakKey++) {
+            unsigned lastPath = path;
+
+            int len = 0;
+            memcpy(&len, pageBuffer + path, sizeof(int));
+            pageKey = new char[len + sizeof(int)];
+            memcpy(&pageKey, pageBuffer + path, len + sizeof(int));
+            path += len + sizeof(int);
+
+            if (checkBiggerStr(pageKey, entry->key)) {
+                path = lastPath;
+                break;
+            }
+            //add rid
+            path += sizeof(int) + sizeof(short);
+            delete[]pageKey;
+        }
+        //shift right
+        unsigned totalLen = getIndexPath(pageBuffer, keyNum, fh.isKeyFixed);
+        memmove(pageBuffer + path + entryLen, pageBuffer + path, totalLen - path);
+
+        memcpy(pageBuffer + path, entry->key, entryLen - sizeof(int) - sizeof(short));
+
+        path += entryLen - sizeof(int) - sizeof(short);
+        memcpy(pageBuffer + path, &(entry->rid.pageNum), sizeof(int));
+        path += sizeof(int);
+        memcpy(pageBuffer + path, &(entry->rid.slotNum), sizeof(short));
+
+        updateKeyNum(pageBuffer, keyNum + 1);
+        updateFreeSpace(pageBuffer, freeSpace - entryLen);
+
+        return RC::ok;
     }
 
     template<class T>
@@ -737,44 +843,123 @@ namespace PeterDB {
         char pageBuffer[PAGE_SIZE];
         fh.fileHandle.readPage(newPageNum, pageBuffer);
         unsigned keyNum = getKeyNum(pageBuffer);
-//        bool isLeaf = checkLeafNode(pageBuffer);
+        unsigned path = sizeof(int);
+
+        T key;
+        bool inserted = false;
+        for (int i = 0; i < keyNum; i++) {
+            auto *entry = new ChildEntry<T>;
+            memcpy(&(entry->key), pageBuffer + path, sizeof(int));
+            path += sizeof(int);
+            memcpy(&(entry->newPageNum), pageBuffer + path, sizeof(int));
+            if (newChildEntry != nullptr && checkBigger(entry->key, newChildEntry->key)) {
+                vec.insert(vec.begin() + i, newChildEntry);
+                inserted = true;
+            }
+            vec.push_back(entry);
+        }
+        if (!inserted) {
+            vec.push_back(newChildEntry);
+        }
+
+        return RC::ok;
+    }
+
+    RC IndexManager::formChildEntryStr(IXFileHandle &fh, unsigned int newPageNum, ChildEntryStr *newChildEntry,
+                                       std::vector<ChildEntryStr *> &vec) {
+        if (newChildEntry != nullptr) {
+            return RC::RM_EOF;
+        }
+        char pageBuffer[PAGE_SIZE];
+        fh.fileHandle.readPage(newPageNum, pageBuffer);
+        unsigned keyNum = getKeyNum(pageBuffer);
+        unsigned path = sizeof(int);
+
+        char *key;
+        bool inserted = false;
+        for (int i = 0; i < keyNum; i++) {
+            auto *entry = new ChildEntryStr;
+            int len = 0;
+            memcpy(&len, pageBuffer + path, sizeof(int));
+            memcpy(entry->key, pageBuffer + path, sizeof(int) + len);
+            path += sizeof(int) + len;
+            memcpy(&entry->newPageNum, pageBuffer + path, sizeof(int));
+            if (newChildEntry != nullptr && checkBiggerStr(entry->key, newChildEntry->key)) {
+                vec.insert(vec.begin() + i, newChildEntry);
+                inserted = true;
+            }
+            vec.push_back(entry);
+        }
+        if (!inserted) {
+            vec.push_back(newChildEntry);
+        }
+
+        return RC::ok;
+    }
+
+    template<class T>
+    RC IndexManager::formLeafEntry(IXFileHandle &fh, unsigned int pageNum, Entry<T> *newEntry,
+                                   std::vector<Entry<T> *> &vec) {
+        if (newEntry != nullptr) {
+            return RC::RM_EOF;
+        }
+        char pageBuffer[PAGE_SIZE];
+        fh.fileHandle.readPage(pageNum, pageBuffer);
+        unsigned keyNum = getKeyNum(pageBuffer);
         unsigned path = 0;
 
         T key;
-        if (fh.isKeyFixed) {
-            for (int i = 0; i < keyNum; i++) {
-                auto *entry = new ChildEntry<T>;
-                memcpy(entry->key, pageBuffer + path, sizeof(int));
-                path += sizeof(int);
-                memcpy(entry->newPageNum, pageBuffer + path, sizeof(int));
-                if (newChildEntry != nullptr && checkBigger(entry->key, newChildEntry->key)) {
-                    vec.insert(i, newChildEntry);
-                    newChildEntry = nullptr;
-                }
-                vec.push_back(entry);
+        for (int i = 0; i < keyNum; i++) {
+            auto *entry = new Entry<T>;
+            memcpy(&(entry->key), pageBuffer + path, sizeof(int));
+            path += sizeof(int);
+            memcpy(&(entry->rid.pageNum), pageBuffer + path, sizeof(int));
+            path += sizeof(int);
+            memcpy(&(entry->rid.slotNum), pageBuffer + path, sizeof(short));
+            path += sizeof(short);
+            if (newEntry != nullptr && checkBigger(entry->key, newEntry->key)) {
+                vec.insert(vec.begin() + i, newEntry);
+                delete newEntry;
+                newEntry = nullptr;
             }
-            if (newChildEntry != nullptr) {
-                vec.insert(keyNum, newChildEntry);
-                newChildEntry = nullptr;
+            vec.push_back(entry);
+        }
+        if (newEntry != nullptr) {
+            vec.push_back(newEntry);
+        }
+
+        return RC::ok;
+    }
+
+    RC IndexManager::formLeafEntryStr(IXFileHandle &fh, unsigned int pageNum, EntryStr *newEntry,
+                                      std::vector<EntryStr *> &vec) {
+        if (newEntry != nullptr) {
+            return RC::RM_EOF;
+        }
+        char pageBuffer[PAGE_SIZE];
+        fh.fileHandle.readPage(pageNum, pageBuffer);
+        unsigned keyNum = getKeyNum(pageBuffer);
+        unsigned path = 0;
+
+        for (int i = 0; i < keyNum; i++) {
+            auto *entry = new EntryStr;
+            int len = 0;
+            memcpy(&len, pageBuffer + path, sizeof(int));
+            memcpy(entry->key, pageBuffer + path, sizeof(int) + len);
+            path += sizeof(int) + len;
+            memcpy(&(entry->rid.pageNum), pageBuffer + path, sizeof(int));
+            path += sizeof(int);
+            memcpy(&(entry->rid.slotNum), pageBuffer + path, sizeof(short));
+            path += sizeof(short);
+            if (newEntry != nullptr && checkBiggerStr(entry->key, newEntry->key)) {
+                vec.insert(vec.begin() + i, newEntry);
+                delete newEntry;
+                newEntry = nullptr;
             }
-        } else {
-            for (int i = 0; i < keyNum; i++) {
-                auto *entry = new ChildEntry<T>;
-                int len = 0;
-                memcpy(&len, pageBuffer + path, sizeof(int));
-                memcpy(entry->key, pageBuffer + path, sizeof(int) + len);
-                path += sizeof(int) + len;
-                memcpy(entry->newPageNum, pageBuffer + path, sizeof(int));
-                if (newChildEntry != nullptr && checkBigger(entry->key, newChildEntry->key)) {
-                    vec.insert(i, newChildEntry);
-                    newChildEntry = nullptr;
-                }
-                vec.push_back(entry);
-            }
-            if (newChildEntry != nullptr) {
-                vec.insert(keyNum, newChildEntry);
-                newChildEntry = nullptr;
-            }
+            vec.push_back(entry);
+        }
+        if (newEntry != nullptr) {
+            vec.push_back(newEntry);
         }
 
         return RC::ok;
@@ -788,7 +973,7 @@ namespace PeterDB {
         char tarPageBuffer[PAGE_SIZE];
         fh.fileHandle.readPage(tarPage, tarPageBuffer);
         std::vector<ChildEntry<T> *> sortedVec;
-        formChildEntry(fh, tarPageBuffer, newChildEntry, sortedVec);
+        formChildEntry(fh, tarPage, newChildEntry, sortedVec);
         unsigned keyNum = sortedVec.size();
         unsigned halfKey = (keyNum) / 2;
 
@@ -796,7 +981,7 @@ namespace PeterDB {
         updateFreeSpace(tarPageBuffer, PAGE_SIZE - 5);
         for (int i = 0; i < halfKey; ++i) {
             unsigned entryLen = 0;
-            entryLen = getChildEntryLen(sortedVec[i], fh.isKeyFixed);
+            entryLen = getChildEntryLen(sortedVec[i]);
             putChildEntry(fh, tarPageBuffer, sortedVec[i], entryLen);
         }
         fh.fileHandle.writePage(tarPage, tarPageBuffer);
@@ -807,20 +992,54 @@ namespace PeterDB {
         fh.fileHandle.readPage(newPageNum, newPageBuffer);
 
         //fill newChildEntry
-        if (fh.isKeyFixed) {
-            newChildEntry->key = sortedVec[halfKey]->key;
-        } else {
-            int len = 0;
-            memcpy(&len, sortedVec[halfKey]->key, sizeof(int));
-            newChildEntry->key = new char[len + sizeof(int)];
-            memcpy(newChildEntry->key, sortedVec[halfKey]->key, len + sizeof(int));
-        }
+        newChildEntry->key = sortedVec[halfKey]->key;
         newChildEntry->newPageNum = newPageNum;
 
         //move rest to new node
         for (int i = halfKey; i < keyNum; i++) {
-            unsigned entryLen = getChildEntryLen(sortedVec[i], fh.isKeyFixed);
+            unsigned entryLen = getChildEntryLen(sortedVec[i]);
             putChildEntry(fh, newPageBuffer, sortedVec[i], entryLen);
+        }
+        fh.fileHandle.writePage(newPageNum, newPageBuffer);
+
+        return RC::ok;
+    }
+
+    RC IndexManager::splitIndexPageStr(IXFileHandle &fh, unsigned int tarPage, unsigned int &newPage,
+                                       ChildEntryStr *newChildEntry) {
+        char tarPageBuffer[PAGE_SIZE];
+        fh.fileHandle.readPage(tarPage, tarPageBuffer);
+        std::vector<ChildEntryStr *> sortedVec;
+        formChildEntryStr(fh, tarPage, newChildEntry, sortedVec);
+        unsigned keyNum = sortedVec.size();
+        unsigned halfKey = (keyNum) / 2;
+
+        updateKeyNum(tarPageBuffer, 0);
+        updateFreeSpace(tarPageBuffer, PAGE_SIZE - 5);
+        for (int i = 0; i < halfKey; ++i) {
+            unsigned entryLen = 0;
+            entryLen = getChildEntryLenStr(sortedVec[i]);
+            putChildEntryStr(fh, tarPageBuffer, sortedVec[i], entryLen);
+        }
+        fh.fileHandle.writePage(tarPage, tarPageBuffer);
+
+        unsigned newPageNum = 0;
+        insertNewIndexPage(fh, newPageNum, false);
+        char newPageBuffer[PAGE_SIZE];
+        fh.fileHandle.readPage(newPageNum, newPageBuffer);
+
+        //fill newChildEntry
+        int len = 0;
+        memcpy(&len, sortedVec[halfKey]->key, sizeof(int));
+        newChildEntry->key = new char[len + sizeof(int)];
+        memcpy(newChildEntry->key, sortedVec[halfKey]->key, len + sizeof(int));
+
+        newChildEntry->newPageNum = newPageNum;
+
+        //move rest to new node
+        for (int i = halfKey; i < keyNum; i++) {
+            unsigned entryLen = getChildEntryLenStr(sortedVec[i]);
+            putChildEntryStr(fh, newPageBuffer, sortedVec[i], entryLen);
         }
         fh.fileHandle.writePage(newPageNum, newPageBuffer);
 
@@ -833,7 +1052,7 @@ namespace PeterDB {
         char tarPageBuffer[PAGE_SIZE];
         fh.fileHandle.readPage(tarPage, tarPageBuffer);
         std::vector<Entry<T> *> sortedVec;
-        formEntry(fh, tarPageBuffer, newEntry, sortedVec);
+        formLeafEntry(fh, tarPage, newEntry, sortedVec);
         unsigned keyNum = sortedVec.size();
         unsigned halfKey = (keyNum) / 2;
 
@@ -841,7 +1060,7 @@ namespace PeterDB {
         updateFreeSpace(tarPageBuffer, PAGE_SIZE - 9);
         for (int i = 0; i < halfKey; ++i) {
             unsigned entryLen = 0;
-            entryLen = getEntryLen(sortedVec[i], fh.isKeyFixed);
+            entryLen = getEntryLen(sortedVec[i]);
             putLeafEntry(fh, tarPageBuffer, sortedVec[i], entryLen);
         }
         unsigned oriNextPage = getNextPage(tarPageBuffer);
@@ -852,19 +1071,12 @@ namespace PeterDB {
         fh.fileHandle.readPage(newPageNum, newPageBuffer);
 
         //fill newChildEntry
-        if (fh.isKeyFixed) {
-            newChildEntry->key = sortedVec[halfKey]->key;
-        } else {
-            int len = 0;
-            memcpy(&len, sortedVec[halfKey]->key, sizeof(int));
-            newChildEntry->key = new char[len + sizeof(int)];
-            memcpy(newChildEntry->key, sortedVec[halfKey]->key, len + sizeof(int));
-        }
+        newChildEntry->key = sortedVec[halfKey]->key;
         newChildEntry->newPageNum = newPageNum;
 
         //move rest to new node
         for (int i = halfKey; i < keyNum; i++) {
-            unsigned entryLen = getEntryLen(sortedVec[i], fh.isKeyFixed);
+            unsigned entryLen = getEntryLen(sortedVec[i]);
             putLeafEntry(fh, newPageBuffer, sortedVec[i], entryLen);
         }
 
@@ -882,7 +1094,57 @@ namespace PeterDB {
 
         return RC::ok;
 
-        //copy and fill entry
+    }
+
+    RC IndexManager::splitLeafPageStr(IXFileHandle &fh, unsigned int tarPage, unsigned int &newPage, EntryStr *newEntry,
+                                      ChildEntryStr *newChildEntry) {
+        char tarPageBuffer[PAGE_SIZE];
+        fh.fileHandle.readPage(tarPage, tarPageBuffer);
+        std::vector<EntryStr *> sortedVec;
+        formLeafEntryStr(fh, tarPage, newEntry, sortedVec);
+        unsigned keyNum = sortedVec.size();
+        unsigned halfKey = (keyNum) / 2;
+
+        updateKeyNum(tarPageBuffer, 0);
+        updateFreeSpace(tarPageBuffer, PAGE_SIZE - 9);
+        for (int i = 0; i < halfKey; ++i) {
+            unsigned entryLen = 0;
+            entryLen = getEntryLenStr(sortedVec[i]);
+            putLeafEntryStr(fh, tarPageBuffer, sortedVec[i], entryLen);
+        }
+        unsigned oriNextPage = getNextPage(tarPageBuffer);
+
+        unsigned newPageNum = 0;
+        insertNewIndexPage(fh, newPageNum, true);
+        char newPageBuffer[PAGE_SIZE];
+        fh.fileHandle.readPage(newPageNum, newPageBuffer);
+
+        //fill newChildEntry
+        int len = 0;
+        memcpy(&len, sortedVec[halfKey]->key, sizeof(int));
+        newChildEntry->key = new char[len + sizeof(int)];
+        memcpy(newChildEntry->key, sortedVec[halfKey]->key, len + sizeof(int));
+        newChildEntry->newPageNum = newPageNum;
+
+        //move rest to new node
+        for (int i = halfKey; i < keyNum; i++) {
+            unsigned entryLen = getEntryLenStr(sortedVec[i]);
+            putLeafEntryStr(fh, newPageBuffer, sortedVec[i], entryLen);
+        }
+
+        updateNextPage(tarPageBuffer, newPageNum);
+        updatePrevPage(newPageBuffer, tarPage);
+        updateNextPage(newPageBuffer, oriNextPage);
+        if (oriNextPage != NULL_PAGE) {
+            char *nextPageBuffer = new char[PAGE_SIZE];
+            fh.fileHandle.readPage(oriNextPage, nextPageBuffer);
+            updatePrevPage(nextPageBuffer, newPageNum);
+            fh.fileHandle.writePage(oriNextPage, nextPageBuffer);
+        }
+        fh.fileHandle.writePage(tarPage, tarPageBuffer);
+        fh.fileHandle.writePage(newPageNum, newPageBuffer);
+
+        return RC::ok;
 
     }
 };

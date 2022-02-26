@@ -11,6 +11,8 @@
 # define IX_EOF (-1)  // end of the index scan
 
 namespace PeterDB {
+
+    //only use for int and float
     template<class T>
     struct ChildEntry {
         T key;
@@ -23,6 +25,16 @@ namespace PeterDB {
         RID rid;
     };
 
+    struct ChildEntryStr {
+        char *key;
+        unsigned newPageNum;
+    };
+
+    struct EntryStr {
+        char *key;
+        RID rid;
+    };
+
     class IX_ScanIterator;
 
     class IXFileHandle;
@@ -32,6 +44,9 @@ namespace PeterDB {
         PagedFileManager *pm;
 
     public:
+        const std::string keys;
+        const std::string children;
+
         static IndexManager &instance();
 
         // Create an index file.
@@ -91,21 +106,41 @@ namespace PeterDB {
         template<class T>
         RC putChildEntry(IXFileHandle &fh, char *pageBuffer, ChildEntry<T> *newChildEntry, unsigned entryLen);
 
+        RC putChildEntryStr(IXFileHandle &fh, char *pageBuffer, ChildEntryStr *newChildEntry, unsigned entryLen);
+
         template<class T>
         RC putLeafEntry(IXFileHandle &fh, char *pageBuffer, Entry<T> *entry, unsigned entryLen);
+
+        RC putLeafEntryStr(IXFileHandle &fh, char *pageBuffer, EntryStr *entry, unsigned int entryLen);
 
         //get smallest key in page ,form with pageNum
         template<class T>
         RC formChildEntry(IXFileHandle &fh, unsigned pageNum, ChildEntry<T> *newChildEntry,
                           std::vector<ChildEntry<T> *> &vec);
 
+        RC formChildEntryStr(IXFileHandle &fh, unsigned int newPageNum, ChildEntryStr *newChildEntry,
+                             std::vector<ChildEntryStr *> &vec);
+
+        template<class T>
+        RC formLeafEntry(IXFileHandle &fh, unsigned int pageNum, Entry<T> *newEntry,
+                         std::vector<Entry<T> *> &vec);
+
+        RC formLeafEntryStr(IXFileHandle &fh, unsigned int pageNum, EntryStr *newEntry,
+                            std::vector<EntryStr *> &vec);
+
         //split pageNum , insert a new page
         template<class T>
         RC splitIndexPage(IXFileHandle &fh, unsigned tarPage, unsigned &newPage, ChildEntry<T> *newChildEntry);
 
+        RC splitIndexPageStr(IXFileHandle &fh, unsigned int tarPage, unsigned int &newPage,
+                             ChildEntryStr *newChildEntry);
+
         template<class T>
         RC splitLeafPage(IXFileHandle &fh, unsigned tarPage, unsigned &newPage, Entry<T> *newEntry,
                          ChildEntry<T> *newChildEntry);
+
+        RC splitLeafPageStr(IXFileHandle &fh, unsigned int tarPage, unsigned int &newPage,
+                            EntryStr *newEntry, ChildEntryStr *newChildEntry);
 
         template<class T>
         RC getIndexKey(IXFileHandle &fh, const char *pageBuffer, unsigned short keyIndex, T &key);
@@ -116,12 +151,20 @@ namespace PeterDB {
         template<class T>
         RC recurInsertEntry(IXFileHandle &fh, unsigned nodePage, Entry<T> *entry, ChildEntry<T> *newChildEntry);
 
+        RC recurInsertEntryStr(IXFileHandle &fh, unsigned int nodePage, EntryStr *entry,
+                               ChildEntryStr *newChildEntry);
+
         template<class T>
         RC checkLeafKeys(IXFileHandle &fh, const char *pageBuffer,
                          const void *lowKey, unsigned &keyIndex, bool &noMatchKey, bool lowKeyInclusive);
 
+        RC checkLeafKeysStr(IXFileHandle &fh, const char *pageBuffer, const void *lowKey, unsigned &keyIndex,
+                            bool &noMatchKey, bool lowKeyInclusive);
+
         template<class T>
         RC checkIndexKeys(IXFileHandle &fh, const char *pageBuffer, const void *lowKey, unsigned &pageNum);
+
+        RC checkIndexKeysStr(IXFileHandle &fh, const char *pageBuffer, const void *lowKey, unsigned &pageNum);
 
         template<class T>
         RC delChildEntry(IXFileHandle &fh, char *pageBuffer, ChildEntry<T> *newChildEntry, unsigned entryLen);
@@ -130,7 +173,7 @@ namespace PeterDB {
         RC delLeafEntry(IXFileHandle &fh, char *pageBuffer, Entry<T> *entry, unsigned entryLen);
 
     protected:
-        IndexManager() : pm(&PagedFileManager::instance()) {
+        IndexManager() : pm(&PagedFileManager::instance()), keys("\"keys\""), children("\"children\"") {
 
         }                                                  // Prevent construction
         ~IndexManager() = default;                                                  // Prevent unwanted destruction
@@ -159,6 +202,8 @@ namespace PeterDB {
 
         template<class T>
         RC getRIDviaIndex(RID &rid, void *key);
+
+        RC getRIDviaIndexStr(RID &rid, void *key);
 
         // Constructor
         IX_ScanIterator();
