@@ -713,7 +713,7 @@ namespace PeterDB {
             path += sizeof(int) + sizeof(short);
         }
         //shift right
-        unsigned totalLen = getIndexPath(pageBuffer, keyNum, fh.isKeyFixed);
+        unsigned totalLen = getLeafPath(pageBuffer, keyNum, fh.isKeyFixed);
         memmove(pageBuffer + path + entryLen, pageBuffer + path, totalLen - path);
 
         memcpy(pageBuffer + path, &(entry->key), entryLen - sizeof(int) - sizeof(short));
@@ -756,7 +756,7 @@ namespace PeterDB {
             delete[]pageKey;
         }
         //shift right
-        unsigned totalLen = getIndexPath(pageBuffer, keyNum, fh.isKeyFixed);
+        unsigned totalLen = getLeafPath(pageBuffer, keyNum, fh.isKeyFixed);
         memmove(pageBuffer + path + entryLen, pageBuffer + path, totalLen - path);
 
         memcpy(pageBuffer + path, entry->key, entryLen - sizeof(int) - sizeof(short));
@@ -837,7 +837,7 @@ namespace PeterDB {
     template<class T>
     RC IndexManager::formChildEntry(IXFileHandle &fh, unsigned int newPageNum, ChildEntry<T> *newChildEntry,
                                     std::vector<ChildEntry<T> *> &vec) {
-        if (newChildEntry != nullptr) {
+        if (newChildEntry == nullptr) {
             return RC::RM_EOF;
         }
         char pageBuffer[PAGE_SIZE];
@@ -867,7 +867,7 @@ namespace PeterDB {
 
     RC IndexManager::formChildEntryStr(IXFileHandle &fh, unsigned int newPageNum, ChildEntryStr *newChildEntry,
                                        std::vector<ChildEntryStr *> &vec) {
-        if (newChildEntry != nullptr) {
+        if (newChildEntry == nullptr) {
             return RC::RM_EOF;
         }
         char pageBuffer[PAGE_SIZE];
@@ -1147,4 +1147,137 @@ namespace PeterDB {
         return RC::ok;
 
     }
+
+    template<class T>
+    RC IndexManager::getNodeKeys(IXFileHandle &fh, const unsigned int currentNode, std::vector<T> &vec) const {
+        char pageBuffer[PAGE_SIZE];
+        fh.fileHandle.readPage(currentNode, pageBuffer);
+        unsigned keyNum = getKeyNum(pageBuffer);
+        bool isLeaf = checkLeafNode(pageBuffer);
+        if (!isLeaf) {
+            int path = sizeof(int);
+
+            T key;
+            for (int i = 0; i < keyNum; i++) {
+                memcpy(&key, pageBuffer + path, sizeof(int));
+                vec.push_back(key);
+                path += sizeof(int) * 2;
+            }
+        } else {
+            int path = 0;
+
+            T key;
+            for (int i = 0; i < keyNum; i++) {
+                memcpy(&key, pageBuffer + path, sizeof(int));
+                vec.push_back(key);
+                path += sizeof(int) * 2 + sizeof(short);
+            }
+        }
+
+        return RC::ok;
+    }
+
+    RC IndexManager::getNodeKeysStr(IXFileHandle &fh, const unsigned int currentNode,
+                                    std::vector<std::string> &vec) const {
+        char pageBuffer[PAGE_SIZE];
+        fh.fileHandle.readPage(currentNode, pageBuffer);
+        unsigned keyNum = getKeyNum(pageBuffer);
+        bool isLeafNode = checkLeafNode(pageBuffer);
+        if (!isLeafNode) {
+            int path = sizeof(int);
+
+            for (int i = 0; i < keyNum; i++) {
+                int len = 0;
+                memcpy(&len, pageBuffer + path, sizeof(int));
+                path += sizeof(int);
+                std::string key(pageBuffer + path, len);
+                vec.push_back(key);
+                path += sizeof(int) * 2 + len;
+            }
+        } else {
+            int path = 0;
+
+            for (int i = 0; i < keyNum; i++) {
+                int len = 0;
+                memcpy(&len, pageBuffer + path, sizeof(int));
+                path += sizeof(int);
+                std::string key(pageBuffer + path, len);
+                vec.push_back(key);
+                path += sizeof(int) * 2 + len + sizeof(short);
+            }
+        }
+
+        return RC::ok;
+    }
+
+    template<class T>
+    RC IndexManager::getNodePages(IXFileHandle &fh, const unsigned int currentNode, std::vector<RID> &vec) const {
+        char pageBuffer[PAGE_SIZE];
+        fh.fileHandle.readPage(currentNode, pageBuffer);
+        unsigned keyNum = getKeyNum(pageBuffer);
+        bool isLeaf = checkLeafNode(pageBuffer);
+
+        int path = 0;
+        unsigned pageNum = 0;
+        if (!isLeaf) {
+            memcpy(&pageNum, pageBuffer + path, sizeof(int));
+            path += sizeof(int);
+            vec.push_back({pageNum, 0});
+            for (int i = 0; i < keyNum; i++) {
+                path += sizeof(int);
+                memcpy(&pageNum, pageBuffer + path, sizeof(int));
+                vec.push_back({pageNum, 0});
+                path += sizeof(int);
+            }
+        } else {
+            unsigned short slotNum = 0;
+            for (int i = 0; i < keyNum; i++) {
+                //jump over key
+                path += sizeof(int);
+                memcpy(&pageNum, pageBuffer + path, sizeof(int));
+                path += sizeof(int);
+                memcpy(&slotNum, pageBuffer + path, sizeof(short));
+                path += sizeof(short);
+                vec.push_back({pageNum, slotNum});
+            }
+        }
+        return RC::ok;
+    }
+
+    RC IndexManager::getNodePagesStr(IXFileHandle &fh, const unsigned int currentNode, std::vector<RID> &vec) const {
+        char pageBuffer[PAGE_SIZE];
+        fh.fileHandle.readPage(currentNode, pageBuffer);
+        unsigned keyNum = getKeyNum(pageBuffer);
+        bool isLeaf = checkLeafNode(pageBuffer);
+
+        int path = 0;
+        unsigned pageNum = 0;
+        if (!isLeaf) {
+            memcpy(&pageNum, pageBuffer + path, sizeof(int));
+            path += sizeof(int);
+            vec.push_back({pageNum, 0});
+            for (int i = 0; i < keyNum; i++) {
+                int len = 0;
+                memcpy(&len, pageBuffer + path, sizeof(int));
+                path += sizeof(int) + len;
+                memcpy(&pageNum, pageBuffer + path, sizeof(int));
+                path += sizeof(int);
+                vec.push_back({pageNum, 0});
+            }
+        } else {
+            for (int i = 0; i < keyNum; i++) {
+                int len = 0;
+                memcpy(&len, pageBuffer + path, sizeof(int));
+                path += sizeof(int) + len;
+                memcpy(&pageNum, pageBuffer + path, sizeof(int));
+                path += sizeof(int);
+                unsigned short slotNum = 0;
+                memcpy(&slotNum, pageBuffer + path, sizeof(short));
+                path += sizeof(short);
+                vec.push_back({pageNum, slotNum});
+            }
+        }
+        return RC::ok;
+    }
+
 };

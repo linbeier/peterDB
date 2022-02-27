@@ -57,7 +57,6 @@ namespace PeterDB {
             FILE *fd = fopen(fileName.c_str(), "r+b");
             readHiddenPage(fd, ixFileHandle.fileHandle);
             readDummyNode(fd, ixFileHandle.rootPage);
-
         }
         return RC::ok;
     }
@@ -102,6 +101,12 @@ namespace PeterDB {
     template<class T>
     RC IndexManager::recurInsertEntry(IXFileHandle &fh, unsigned int nodePage, Entry<T> *entry,
                                       ChildEntry<T> *newChildEntry) {
+        if (fh.fileHandle.totalPage == 0) {
+            unsigned tempPageNum = 0;
+            insertNewIndexPage(fh, tempPageNum, true);
+            //for root page
+            fh.fileHandle.appendPageCounter++;
+        }
         char pageBuffer[PAGE_SIZE];
         fh.fileHandle.readPage(nodePage, pageBuffer);
         if (!checkLeafNode(pageBuffer)) {
@@ -118,6 +123,7 @@ namespace PeterDB {
                     putChildEntry(fh, pageBuffer, newChildEntry, entryLen);
                     delete newChildEntry;
                     newChildEntry = nullptr;
+                    fh.fileHandle.writePage(nodePage, pageBuffer);
                     return RC::ok;
                 } else {
                     unsigned newPage = 0;
@@ -144,6 +150,7 @@ namespace PeterDB {
             if (freeSpace >= entryLen) {
                 putLeafEntry(fh, pageBuffer, entry, entryLen);
                 newChildEntry = nullptr;
+                fh.fileHandle.writePage(nodePage, pageBuffer);
                 return RC::ok;
             } else {
                 unsigned newPageNum = 0;
@@ -155,6 +162,12 @@ namespace PeterDB {
 
     RC IndexManager::recurInsertEntryStr(IXFileHandle &fh, unsigned int nodePage, EntryStr *entry,
                                          ChildEntryStr *newChildEntry) {
+        if (fh.fileHandle.totalPage == 0) {
+            unsigned tempPageNum = 0;
+            insertNewIndexPage(fh, tempPageNum, true);
+            //for root page
+            fh.fileHandle.appendPageCounter++;
+        }
         char pageBuffer[PAGE_SIZE];
         fh.fileHandle.readPage(nodePage, pageBuffer);
         if (!checkLeafNode(pageBuffer)) {
@@ -171,6 +184,7 @@ namespace PeterDB {
                     putChildEntryStr(fh, pageBuffer, newChildEntry, entryLen);
                     delete newChildEntry;
                     newChildEntry = nullptr;
+                    fh.fileHandle.writePage(nodePage, pageBuffer);
                     return RC::ok;
                 } else {
                     unsigned newPage = 0;
@@ -197,6 +211,7 @@ namespace PeterDB {
             if (freeSpace >= entryLen) {
                 putLeafEntryStr(fh, pageBuffer, entry, entryLen);
                 newChildEntry = nullptr;
+                fh.fileHandle.writePage(nodePage, pageBuffer);
                 return RC::ok;
             } else {
                 unsigned newPageNum = 0;
@@ -250,7 +265,128 @@ namespace PeterDB {
     }
 
     RC IndexManager::printBTree(IXFileHandle &ixFileHandle, const Attribute &attribute, std::ostream &out) const {
-        
+        if (attribute.type == TypeReal) {
+            dfsPrint<float>(ixFileHandle, out, ixFileHandle.rootPage, 0);
+        } else if (attribute.type == TypeInt) {
+            dfsPrint<int>(ixFileHandle, out, ixFileHandle.rootPage, 0);
+        } else {
+            dfsPrintStr(ixFileHandle, out, ixFileHandle.rootPage, 0);
+        }
+    }
+
+    template<class T>
+    RC IndexManager::dfsPrint(IXFileHandle &ixFileHandle, std::ostream &out, unsigned int currentNode,
+                              unsigned int depth) const {
+        char pageBuffer[PAGE_SIZE];
+        ixFileHandle.fileHandle.readPage(currentNode, pageBuffer);
+        bool isLeafNode = checkLeafNode(pageBuffer);
+
+        if (!isLeafNode) {
+            for (int i = 0; i < depth; i++) {
+                out << "\t";
+            }
+            out << "{" << keys << ":";
+            std::vector<T> keyVec;
+            getNodeKeys<T>(ixFileHandle, currentNode, keyVec);
+            out << "[";
+            for (int i = 0; i < keyVec.size(); i++) {
+                out << "\"" << keyVec[i] << "\"";
+                if (i != keyVec.size() - 1) {
+                    out << ",";
+                }
+            }
+            out << "]," << std::endl;
+            for (int i = 0; i < depth; i++) {
+                out << "\t";
+            }
+            out << " " << children << ": [" << std::endl;
+            depth++;
+            std::vector<RID> pageVec;
+            getNodePages<T>(ixFileHandle, currentNode, pageVec);
+            for (int i = 0; i < pageVec.size(); ++i) {
+                dfsPrint<T>(ixFileHandle, out, pageVec[i].pageNum, depth);
+            }
+            for (int i = 0; i < depth; i++) {
+                out << "\t";
+            }
+            out << "]}" << std::endl;
+        } else {
+            for (int i = 0; i < depth; i++) {
+                out << "\t";
+            }
+            out << "{" << keys << ": [";
+            std::vector<T> keyVec;
+            std::vector<RID> ridVec;
+            getNodeKeys(ixFileHandle, currentNode, keyVec);
+            getNodePages<T>(ixFileHandle, currentNode, ridVec);
+
+            for (int i = 0; i < keyVec.size(); i++) {
+                out << "\"" << keyVec[i] << ":[(" << ridVec[i].pageNum << "," << ridVec[i].slotNum << ")]\"";
+                if (i != keyVec.size() - 1) {
+                    out << ",";
+                }
+            }
+
+            out << "]}," << std::endl;
+        }
+        return RC::ok;
+    }
+
+    RC IndexManager::dfsPrintStr(IXFileHandle &ixFileHandle, std::ostream &out, unsigned int currentNode,
+                                 unsigned int depth) const {
+        char pageBuffer[PAGE_SIZE];
+        ixFileHandle.fileHandle.readPage(currentNode, pageBuffer);
+        bool isLeafNode = checkLeafNode(pageBuffer);
+
+        if (!isLeafNode) {
+            for (int i = 0; i < depth; i++) {
+                out << "\t";
+            }
+            out << "{" << keys << ":";
+            std::vector<std::string> keyVec;
+            getNodeKeysStr(ixFileHandle, currentNode, keyVec);
+            out << "[";
+            for (int i = 0; i < keyVec.size(); i++) {
+                out << "\"" << keyVec[i] << "\"";
+                if (i != keyVec.size() - 1) {
+                    out << ",";
+                }
+            }
+            out << "]," << std::endl;
+            for (int i = 0; i < depth; i++) {
+                out << "\t";
+            }
+            out << " " << children << ": [" << std::endl;
+            depth++;
+            std::vector<RID> pageVec;
+            getNodePagesStr(ixFileHandle, currentNode, pageVec);
+            for (int i = 0; i < pageVec.size(); ++i) {
+                dfsPrintStr(ixFileHandle, out, pageVec[i].pageNum, depth);
+            }
+            for (int i = 0; i < depth; i++) {
+                out << "\t";
+            }
+            out << "]}" << std::endl;
+        } else {
+            for (int i = 0; i < depth; i++) {
+                out << "\t";
+            }
+            out << "{" << keys << ": [";
+            std::vector<std::string> keyVec;
+            std::vector<RID> ridVec;
+            getNodeKeys(ixFileHandle, currentNode, keyVec);
+            getNodePagesStr(ixFileHandle, currentNode, ridVec);
+
+            for (int i = 0; i < keyVec.size(); i++) {
+                out << "\"" << keyVec[i] << ":[(" << ridVec[i].pageNum << "," << ridVec[i].slotNum << ")]\"";
+                if (i != keyVec.size() - 1) {
+                    out << ",";
+                }
+            }
+
+            out << "]}," << std::endl;
+        }
+        return RC::ok;
     }
 
     IX_ScanIterator::IX_ScanIterator() : ixFileHandle(nullptr), lowKey(nullptr), highKey(nullptr), closed(false),
@@ -294,6 +430,9 @@ namespace PeterDB {
 
     RC
     IXFileHandle::collectCounterValues(unsigned &readPageCount, unsigned &writePageCount, unsigned &appendPageCount) {
+        readPageCount = fileHandle.readPageCounter;
+        writePageCount = fileHandle.writePageCounter;
+        appendPageCount = fileHandle.appendPageCounter;
         return RC::ok;
     }
 

@@ -172,6 +172,23 @@ namespace PeterDB {
         template<class T>
         RC delLeafEntry(IXFileHandle &fh, char *pageBuffer, Entry<T> *entry, unsigned entryLen);
 
+        template<class T>
+        RC getNodeKeys(IXFileHandle &fh, const unsigned currentNode, std::vector<T> &vec) const;
+
+        RC getNodeKeysStr(IXFileHandle &fh, const unsigned currentNode, std::vector<std::string> &vec) const;
+
+        template<class T>
+        RC getNodePages(IXFileHandle &fh, const unsigned currentNode, std::vector<RID> &vec) const;
+
+        RC getNodePagesStr(IXFileHandle &fh, const unsigned currentNode, std::vector<RID> &vec) const;
+
+        template<class T>
+        RC dfsPrint(IXFileHandle &ixFileHandle, std::ostream &out, unsigned currentNode, unsigned depth) const;
+
+        RC dfsPrintStr(IXFileHandle &ixFileHandle, std::ostream &out, unsigned int currentNode,
+                       unsigned int depth) const;
+
+
     protected:
         IndexManager() : pm(&PagedFileManager::instance()), keys("\"keys\""), children("\"children\"") {
 
