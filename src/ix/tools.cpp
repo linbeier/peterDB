@@ -517,7 +517,7 @@ namespace PeterDB {
         char pageBuffer[PAGE_SIZE];
         ixFileHandle->fileHandle.readPage(pageIndex, pageBuffer);
         unsigned short keyNum = getKeyNum(pageBuffer);
-        if (keyNum - 1 < keyIndex) {
+        if (keyNum == keyIndex - 1) {
             keyIndex = 0;
             pageIndex = getNextPage(pageBuffer);
             if (pageIndex == NULL_PAGE)return RM_EOF;
@@ -560,7 +560,7 @@ namespace PeterDB {
         char pageBuffer[PAGE_SIZE];
         ixFileHandle->fileHandle.readPage(pageIndex, pageBuffer);
         unsigned short keyNum = getKeyNum(pageBuffer);
-        if (keyNum - 1 < keyIndex) {
+        if (keyNum == keyIndex - 1) {
             keyIndex = 0;
             pageIndex = getNextPage(pageBuffer);
             if (pageIndex == NULL_PAGE)return RM_EOF;
@@ -903,9 +903,9 @@ namespace PeterDB {
     template<class T>
     RC IndexManager::formLeafEntry(IXFileHandle &fh, unsigned int pageNum, Entry<T> *newEntry,
                                    std::vector<Entry<T> *> &vec) {
-        if (newEntry != nullptr) {
-            return RC::RM_EOF;
-        }
+//        if (newEntry != nullptr) {
+//            return RC::RM_EOF;
+//        }
         char pageBuffer[PAGE_SIZE];
         fh.fileHandle.readPage(pageNum, pageBuffer);
         unsigned keyNum = getKeyNum(pageBuffer);
@@ -936,9 +936,9 @@ namespace PeterDB {
 
     RC IndexManager::formLeafEntryStr(IXFileHandle &fh, unsigned int pageNum, EntryStr *newEntry,
                                       std::vector<EntryStr *> &vec) {
-        if (newEntry != nullptr) {
-            return RC::RM_EOF;
-        }
+//        if (newEntry != nullptr) {
+//            return RC::RM_EOF;
+//        }
         char pageBuffer[PAGE_SIZE];
         fh.fileHandle.readPage(pageNum, pageBuffer);
         unsigned keyNum = getKeyNum(pageBuffer);
@@ -973,7 +973,7 @@ namespace PeterDB {
     //and push middle key(newChildEntry) to upper function
     template<class T>
     RC IndexManager::splitIndexPage(IXFileHandle &fh, unsigned int tarPage, unsigned int &newPage,
-                                    ChildEntry<T> *newChildEntry) {
+                                    ChildEntry<T> *&newChildEntry) {
         char tarPageBuffer[PAGE_SIZE];
         fh.fileHandle.readPage(tarPage, tarPageBuffer);
         std::vector<ChildEntry<T> *> sortedVec;
@@ -1010,7 +1010,7 @@ namespace PeterDB {
     }
 
     RC IndexManager::splitIndexPageStr(IXFileHandle &fh, unsigned int tarPage, unsigned int &newPage,
-                                       ChildEntryStr *newChildEntry) {
+                                       ChildEntryStr *&newChildEntry) {
         char tarPageBuffer[PAGE_SIZE];
         fh.fileHandle.readPage(tarPage, tarPageBuffer);
         std::vector<ChildEntryStr *> sortedVec;
@@ -1052,7 +1052,7 @@ namespace PeterDB {
 
     template<class T>
     RC IndexManager::splitLeafPage(IXFileHandle &fh, unsigned int tarPage, unsigned int &newPage,
-                                   Entry<T> *newEntry, ChildEntry<T> *newChildEntry) {
+                                   Entry<T> *newEntry, ChildEntry<T> *&newChildEntry) {
         char tarPageBuffer[PAGE_SIZE];
         fh.fileHandle.readPage(tarPage, tarPageBuffer);
         std::vector<Entry<T> *> sortedVec;
@@ -1102,7 +1102,7 @@ namespace PeterDB {
     }
 
     RC IndexManager::splitLeafPageStr(IXFileHandle &fh, unsigned int tarPage, unsigned int &newPage, EntryStr *newEntry,
-                                      ChildEntryStr *newChildEntry) {
+                                      ChildEntryStr *&newChildEntry) {
         char tarPageBuffer[PAGE_SIZE];
         fh.fileHandle.readPage(tarPage, tarPageBuffer);
         std::vector<EntryStr *> sortedVec;

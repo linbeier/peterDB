@@ -130,17 +130,17 @@ namespace PeterDB {
 
         //split pageNum , insert a new page
         template<class T>
-        RC splitIndexPage(IXFileHandle &fh, unsigned tarPage, unsigned &newPage, ChildEntry<T> *newChildEntry);
+        RC splitIndexPage(IXFileHandle &fh, unsigned tarPage, unsigned &newPage, ChildEntry<T> *&newChildEntry);
 
         RC splitIndexPageStr(IXFileHandle &fh, unsigned int tarPage, unsigned int &newPage,
-                             ChildEntryStr *newChildEntry);
+                             ChildEntryStr *&newChildEntry);
 
         template<class T>
         RC splitLeafPage(IXFileHandle &fh, unsigned tarPage, unsigned &newPage, Entry<T> *newEntry,
-                         ChildEntry<T> *newChildEntry);
+                         ChildEntry<T> *&newChildEntry);
 
         RC splitLeafPageStr(IXFileHandle &fh, unsigned int tarPage, unsigned int &newPage,
-                            EntryStr *newEntry, ChildEntryStr *newChildEntry);
+                            EntryStr *newEntry, ChildEntryStr *&newChildEntry);
 
         template<class T>
         RC getIndexKey(IXFileHandle &fh, const char *pageBuffer, unsigned short keyIndex, T &key);
@@ -149,10 +149,10 @@ namespace PeterDB {
         RC getLeafKey(IXFileHandle &fh, const char *pageBuffer, unsigned short keyIndex, T &key);
 
         template<class T>
-        RC recurInsertEntry(IXFileHandle &fh, unsigned nodePage, Entry<T> *entry, ChildEntry<T> *newChildEntry);
+        RC recurInsertEntry(IXFileHandle &fh, unsigned nodePage, Entry<T> *entry, ChildEntry<T> *&newChildEntry);
 
         RC recurInsertEntryStr(IXFileHandle &fh, unsigned int nodePage, EntryStr *entry,
-                               ChildEntryStr *newChildEntry);
+                               ChildEntryStr *&newChildEntry);
 
         template<class T>
         RC checkLeafKeys(IXFileHandle &fh, const char *pageBuffer,

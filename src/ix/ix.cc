@@ -67,7 +67,7 @@ namespace PeterDB {
             return RC::FD_FAIL;
         } else {
             writeHiddenPage(ixFileHandle.fileHandle, ixFileHandle.rootPage);
-//            writeDummyNode(ixFileHandle);
+            writeDummyNode(ixFileHandle);
             fclose(ixFileHandle.fileHandle.fd);
             ixFileHandle.fileHandle.fd = nullptr;
             ixFileHandle.fileName = "";
@@ -108,7 +108,7 @@ namespace PeterDB {
 
     template<class T>
     RC IndexManager::recurInsertEntry(IXFileHandle &fh, unsigned int nodePage, Entry<T> *entry,
-                                      ChildEntry<T> *newChildEntry) {
+                                      ChildEntry<T> *&newChildEntry) {
 
         char pageBuffer[PAGE_SIZE];
         fh.fileHandle.readPage(nodePage, pageBuffer);
@@ -139,6 +139,8 @@ namespace PeterDB {
                         fh.fileHandle.readPage(newRootPage, newRootBuffer);
                         memcpy(newRootBuffer, &nodePage, sizeof(int));
                         putChildEntry(fh, newRootBuffer, newChildEntry, childEntryLen);
+                        delete newChildEntry;
+                        newChildEntry = nullptr;
 
                         fh.fileHandle.writePage(newRootPage, newRootBuffer);
                         fh.rootPage = newRootPage;
@@ -159,13 +161,28 @@ namespace PeterDB {
             } else {
                 unsigned newPageNum = 0;
                 splitLeafPage(fh, nodePage, newPageNum, entry, newChildEntry);
+                if (newChildEntry != nullptr && nodePage == fh.rootPage) {
+                    unsigned childEntryLen = getChildEntryLen(newChildEntry);
+                    unsigned newRootPage = 0;
+                    insertNewIndexPage(fh, newRootPage, false);
+                    char newRootBuffer[PAGE_SIZE];
+                    fh.fileHandle.readPage(newRootPage, newRootBuffer);
+                    memcpy(newRootBuffer, &nodePage, sizeof(int));
+                    putChildEntry(fh, newRootBuffer, newChildEntry, childEntryLen);
+                    delete newChildEntry;
+                    newChildEntry = nullptr;
+
+                    fh.fileHandle.writePage(newRootPage, newRootBuffer);
+                    fh.rootPage = newRootPage;
+                    writeDummyNode(fh);
+                }
                 return RC::ok;
             }
         }
     }
 
     RC IndexManager::recurInsertEntryStr(IXFileHandle &fh, unsigned int nodePage, EntryStr *entry,
-                                         ChildEntryStr *newChildEntry) {
+                                         ChildEntryStr *&newChildEntry) {
         if (fh.fileHandle.totalPage == 0) {
             unsigned tempPageNum = 0;
             insertNewIndexPage(fh, tempPageNum, true);
@@ -200,6 +217,8 @@ namespace PeterDB {
                         fh.fileHandle.readPage(newRootPage, newRootBuffer);
                         memcpy(newRootBuffer, &nodePage, sizeof(int));
                         putChildEntryStr(fh, newRootBuffer, newChildEntry, childEntryLen);
+                        delete newChildEntry;
+                        newChildEntry = nullptr;
 
                         fh.fileHandle.writePage(newRootPage, newRootBuffer);
                         fh.rootPage = newRootPage;
@@ -219,6 +238,21 @@ namespace PeterDB {
             } else {
                 unsigned newPageNum = 0;
                 splitLeafPageStr(fh, nodePage, newPageNum, entry, newChildEntry);
+                if (newChildEntry != nullptr && nodePage == fh.rootPage) {
+                    unsigned childEntryLen = getChildEntryLenStr(newChildEntry);
+                    unsigned newRootPage = 0;
+                    insertNewIndexPage(fh, newRootPage, false);
+                    char newRootBuffer[PAGE_SIZE];
+                    fh.fileHandle.readPage(newRootPage, newRootBuffer);
+                    memcpy(newRootBuffer, &nodePage, sizeof(int));
+                    putChildEntryStr(fh, newRootBuffer, newChildEntry, childEntryLen);
+                    delete newChildEntry;
+                    newChildEntry = nullptr;
+
+                    fh.fileHandle.writePage(newRootPage, newRootBuffer);
+                    fh.rootPage = newRootPage;
+                    writeDummyNode(fh);
+                }
                 return RC::ok;
             }
         }
@@ -304,8 +338,9 @@ namespace PeterDB {
         ix_ScanIterator.highKey = highKey;
         ix_ScanIterator.lowKeyInclusive = lowKeyInclusive;
         ix_ScanIterator.highKeyInclusive = highKeyInclusive;
-        ix_ScanIterator.pageIndex = 0;
+        ix_ScanIterator.pageIndex = ixFileHandle.rootPage;
         ix_ScanIterator.keyIndex = 0;
+        ix_ScanIterator.closed = false;
 
         if (lowKey == nullptr) {
             ix_ScanIterator.to_very_left = true;
@@ -371,7 +406,7 @@ namespace PeterDB {
             for (int i = 0; i < pageVec.size(); ++i) {
                 dfsPrint<T>(ixFileHandle, out, pageVec[i].pageNum, depth);
             }
-            for (int i = 0; i < depth; i++) {
+            for (int i = 0; i < depth - 1; i++) {
                 out << "\t";
             }
             out << "]}" << std::endl;
@@ -428,7 +463,7 @@ namespace PeterDB {
             for (int i = 0; i < pageVec.size(); ++i) {
                 dfsPrintStr(ixFileHandle, out, pageVec[i].pageNum, depth);
             }
-            for (int i = 0; i < depth; i++) {
+            for (int i = 0; i < depth - 1; i++) {
                 out << "\t";
             }
             out << "]}" << std::endl;

@@ -230,6 +230,10 @@ namespace PeterDBTesting {
         // insert entries
         generateAndInsertEntries(numOfEntries, ageAttr, seed, salt);
 
+        std::ofstream fs;
+        fs.open("tree_test.txt");
+        ix.printBTree(ixFileHandle, ageAttr, fs);
+
         // Scan
         ASSERT_EQ(ix.scan(ixFileHandle, ageAttr, NULL, NULL, true, true, ix_ScanIterator), success)
                                     << "indexManager::scan() should succeed.";
@@ -264,7 +268,9 @@ namespace PeterDBTesting {
         // Scan again
         ASSERT_EQ(ix.scan(ixFileHandle, ageAttr, NULL, NULL, true, true, ix_ScanIterator), success)
                                     << "indexManager::scan() on a destroyed file should succeed.";
-
+        std::ofstream fs2;
+        fs2.open("tree_test2.txt");
+        ix.printBTree(ixFileHandle, ageAttr, fs2);
 
         // Fetch and check all entries
         count = 0;
@@ -696,7 +702,7 @@ namespace PeterDBTesting {
 
         // insert entry
         unsigned i = 0;
-        for (unsigned &k:keys) {
+        for (unsigned &k: keys) {
             i++;
             // Prepare a key
             prepareKeyAndRid(k, key, rid, empNameAttr.length);
