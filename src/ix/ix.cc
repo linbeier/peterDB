@@ -57,6 +57,7 @@ namespace PeterDB {
             FILE *fd = fopen(fileName.c_str(), "r+b");
             readHiddenPage(fd, ixFileHandle.fileHandle);
             readDummyNode(fd, ixFileHandle.rootPage);
+            ixFileHandle.fileName = fileName;
         }
         return RC::ok;
     }
@@ -69,6 +70,7 @@ namespace PeterDB {
 //            writeDummyNode(ixFileHandle);
             fclose(ixFileHandle.fileHandle.fd);
             ixFileHandle.fileHandle.fd = nullptr;
+            ixFileHandle.fileName = "";
         }
         return RC::ok;
     }
@@ -76,6 +78,12 @@ namespace PeterDB {
     RC
     IndexManager::insertEntry(IXFileHandle &ixFileHandle, const Attribute &attribute, const void *key, const RID &rid) {
 
+        if (ixFileHandle.fileHandle.totalPage == 0) {
+            insertDummyNode(ixFileHandle.fileHandle.fd, ixFileHandle.fileHandle);
+            readDummyNode(ixFileHandle.fileHandle.fd, ixFileHandle.rootPage);
+            unsigned tempPageNum = 0;
+            insertNewIndexPage(ixFileHandle, tempPageNum, true);
+        }
         if (attribute.type == TypeReal) {
             auto *entry = new Entry<float>;
             entry->key = *(float *) key;
@@ -101,12 +109,7 @@ namespace PeterDB {
     template<class T>
     RC IndexManager::recurInsertEntry(IXFileHandle &fh, unsigned int nodePage, Entry<T> *entry,
                                       ChildEntry<T> *newChildEntry) {
-        if (fh.fileHandle.totalPage == 0) {
-            unsigned tempPageNum = 0;
-            insertNewIndexPage(fh, tempPageNum, true);
-            //for root page
-            fh.fileHandle.appendPageCounter++;
-        }
+
         char pageBuffer[PAGE_SIZE];
         fh.fileHandle.readPage(nodePage, pageBuffer);
         if (!checkLeafNode(pageBuffer)) {
@@ -139,6 +142,7 @@ namespace PeterDB {
 
                         fh.fileHandle.writePage(newRootPage, newRootBuffer);
                         fh.rootPage = newRootPage;
+                        writeDummyNode(fh);
                     }
                     return RC::ok;
                 }
@@ -165,8 +169,7 @@ namespace PeterDB {
         if (fh.fileHandle.totalPage == 0) {
             unsigned tempPageNum = 0;
             insertNewIndexPage(fh, tempPageNum, true);
-            //for root page
-            fh.fileHandle.appendPageCounter++;
+
         }
         char pageBuffer[PAGE_SIZE];
         fh.fileHandle.readPage(nodePage, pageBuffer);
@@ -223,6 +226,65 @@ namespace PeterDB {
 
     RC
     IndexManager::deleteEntry(IXFileHandle &ixFileHandle, const Attribute &attribute, const void *key, const RID &rid) {
+        ixFileHandle.fileHandle.readPageCounter++;
+        return recurDelEntry(ixFileHandle, attribute, ixFileHandle.rootPage, key, rid);
+    }
+
+    RC IndexManager::recurDelEntry(IXFileHandle &ixFileHandle, const Attribute &attribute, unsigned int pageNum,
+                                   const void *key, const RID &rid) {
+        char pageBuffer[PAGE_SIZE];
+        ixFileHandle.fileHandle.readPage(pageNum, pageBuffer);
+        bool isLeafNode = checkLeafNode(pageBuffer);
+        if (!isLeafNode) {
+            unsigned nextPageNum = 0;
+            if (attribute.type == TypeInt) {
+                checkIndexKeys<int>(ixFileHandle, pageBuffer, key, nextPageNum);
+                return recurDelEntry(ixFileHandle, attribute, nextPageNum, key, rid);
+            } else if (attribute.type == TypeReal) {
+                checkIndexKeys<float>(ixFileHandle, pageBuffer, key, nextPageNum);
+                return recurDelEntry(ixFileHandle, attribute, nextPageNum, key, rid);
+            } else {
+                checkIndexKeysStr(ixFileHandle, pageBuffer, key, nextPageNum);
+                return recurDelEntry(ixFileHandle, attribute, nextPageNum, key, rid);
+            }
+        } else {
+            if (attribute.type == TypeInt) {
+                auto *entry = new Entry<int>;
+                entry->key = *(int *) key;
+                entry->rid = rid;
+                unsigned entryLen = sizeof(int) + sizeof(int) + sizeof(short);
+                RC re = delLeafEntry(ixFileHandle, pageBuffer, entry, entryLen);
+                if (re != RC::ok) {
+                    return re;
+                }
+                ixFileHandle.fileHandle.writePage(pageNum, pageBuffer);
+                delete entry;
+            } else if (attribute.type == TypeReal) {
+                auto *entry = new Entry<float>;
+                entry->key = *(float *) key;
+                entry->rid = rid;
+                unsigned entryLen = sizeof(int) + sizeof(int) + sizeof(short);
+                RC re = delLeafEntry(ixFileHandle, pageBuffer, entry, entryLen);
+                if (re != RC::ok) {
+                    return re;
+                }
+                ixFileHandle.fileHandle.writePage(pageNum, pageBuffer);
+                delete entry;
+            } else {
+                auto *entry = new EntryStr;
+                entry->key = (char *) key;
+                entry->rid = rid;
+                int len = 0;
+                memcpy(&len, key, sizeof(int));
+                unsigned entryLen = len + sizeof(int) + sizeof(int) + sizeof(short);
+                RC re = delLeafEntryStr(ixFileHandle, pageBuffer, entry, entryLen);
+                if (re != RC::ok) {
+                    return re;
+                }
+                ixFileHandle.fileHandle.writePage(pageNum, pageBuffer);
+                delete entry;
+            }
+        }
         return RC::ok;
     }
 
@@ -233,6 +295,9 @@ namespace PeterDB {
                           bool lowKeyInclusive,
                           bool highKeyInclusive,
                           IX_ScanIterator &ix_ScanIterator) {
+        if (ixFileHandle.fileHandle.fd == nullptr || !pm->is_file_exist(ixFileHandle.fileName.c_str())) {
+            return RC::RM_EOF;
+        }
         ix_ScanIterator.ixFileHandle = &ixFileHandle;
         ix_ScanIterator.attribute = attribute;
         ix_ScanIterator.lowKey = lowKey;

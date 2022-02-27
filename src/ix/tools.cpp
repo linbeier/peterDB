@@ -134,20 +134,20 @@ namespace PeterDB {
         return str1 > str2;
     }
 
-//    template<class T>
-//    bool checkEqual(T &key1, T &key2) {
-//        if (typeid(T) == typeid(char *)) {
-//            int len1 = 0;
-//            memcpy(&len1, key1, sizeof(int));
-//            std::string str1(key1 + sizeof(int), len1);
-//            int len2 = 0;
-//            memcpy(&len2, key2, sizeof(int));
-//            std::string str2(key2 + sizeof(int), len2);
-//            return str1 == str2;
-//        } else {
-//            return key1 == key2;
-//        }
-//    }
+    template<class T>
+    bool checkEqual(T &key1, T &key2) {
+        return key1 == key2;
+    }
+
+    bool checkEqualStr(char *key1, char *key2) {
+        int len1 = 0;
+        memcpy(&len1, key1, sizeof(int));
+        std::string str1(key1 + sizeof(int), len1);
+        int len2 = 0;
+        memcpy(&len2, key2, sizeof(int));
+        std::string str2(key2 + sizeof(int), len2);
+        return str1 == str2;
+    }
 
     RC updateKeyNum(char *pageBuffer, unsigned short keyNum) {
         memcpy(pageBuffer + PAGE_SIZE - sizeof(short), &keyNum, sizeof(short));
@@ -209,16 +209,18 @@ namespace PeterDB {
         return RC::ok;
     }
 
-//    RC IndexManager::insertDummyNode(FILE *fd) {
-//        //create hidden page: data = read, write, append counter
-//        char pagebuffer[PAGE_SIZE];
-//
-//        int initvalue = 0;
-//        memcpy(pagebuffer, &initvalue, sizeof(int));
+    RC IndexManager::insertDummyNode(FILE *fd, FileHandle &fileHandle) {
+        //create hidden page: data = read, write, append counter
+        char pagebuffer[PAGE_SIZE];
+
+        int initvalue = 1;
+        memcpy(pagebuffer, &initvalue, sizeof(int));
 //        fseek(fd, PAGE_SIZE, SEEK_SET);
 //        fwrite(pagebuffer, sizeof(char), PAGE_SIZE, fd);
-//        return RC::ok;
-//    }
+//        fileHandle.appendPageCounter++;
+        fileHandle.appendPage(pagebuffer);
+        return RC::ok;
+    }
 
     RC IndexManager::readHiddenPage(FILE *fd, FileHandle &fileHandle) {
 
@@ -250,10 +252,10 @@ namespace PeterDB {
             return RC::OPEN_FILE_FAIL;
         }
         char pagebuffer[PAGE_SIZE];
-        fseek(fd, 0, SEEK_SET);
+        fseek(fd, PAGE_SIZE, SEEK_SET);
         fread(pagebuffer, 1, PAGE_SIZE, fd);
 
-        memcpy(&root, pagebuffer + 4 * sizeof(int), sizeof(int));
+        memcpy(&root, pagebuffer, sizeof(int));
 
         return RC::ok;
     }
@@ -266,24 +268,24 @@ namespace PeterDB {
         memcpy(pagebuffer + sizeof(int), &fileHandle.writePageCounter, sizeof(int));
         memcpy(pagebuffer + 2 * sizeof(int), &fileHandle.appendPageCounter, sizeof(int));
         memcpy(pagebuffer + 3 * sizeof(int), &fileHandle.totalPage, sizeof(int));
-        memcpy(pagebuffer + 4 * sizeof(int), &root, sizeof(int));
+//        memcpy(pagebuffer + 4 * sizeof(int), &root, sizeof(int));
 
         fseek(fileHandle.fd, 0, SEEK_SET);
         fwrite(pagebuffer, 1, PAGE_SIZE, fileHandle.fd);
 
         return RC::ok;
     }
-//
-//    RC IndexManager::writeDummyNode(IXFileHandle &fileHandle) {
-//        char pagebuffer[PAGE_SIZE];
-//
-//        memcpy(pagebuffer, &fileHandle.rootPage, sizeof(int));
-//
+
+    RC IndexManager::writeDummyNode(IXFileHandle &fileHandle) {
+        char pagebuffer[PAGE_SIZE];
+
+        memcpy(pagebuffer, &fileHandle.rootPage, sizeof(int));
+
 //        fseek(fileHandle.fileHandle.fd, PAGE_SIZE, SEEK_SET);
 //        fwrite(pagebuffer, 1, PAGE_SIZE, fileHandle.fileHandle.fd);
-//
-//        return RC::ok;
-//    }
+        fileHandle.fileHandle.writePage(0, pagebuffer);
+        return RC::ok;
+    }
 
     RC IndexManager::insertNewIndexPage(IXFileHandle &fh, unsigned int &pageNum, bool isLeafNode) {
         char pageBuffer[PAGE_SIZE];
@@ -881,6 +883,7 @@ namespace PeterDB {
             auto *entry = new ChildEntryStr;
             int len = 0;
             memcpy(&len, pageBuffer + path, sizeof(int));
+            entry->key = new char[len + 4];
             memcpy(entry->key, pageBuffer + path, sizeof(int) + len);
             path += sizeof(int) + len;
             memcpy(&entry->newPageNum, pageBuffer + path, sizeof(int));
@@ -945,6 +948,7 @@ namespace PeterDB {
             auto *entry = new EntryStr;
             int len = 0;
             memcpy(&len, pageBuffer + path, sizeof(int));
+            entry->key = new char[len + 4];
             memcpy(entry->key, pageBuffer + path, sizeof(int) + len);
             path += sizeof(int) + len;
             memcpy(&(entry->rid.pageNum), pageBuffer + path, sizeof(int));
@@ -1071,6 +1075,7 @@ namespace PeterDB {
         fh.fileHandle.readPage(newPageNum, newPageBuffer);
 
         //fill newChildEntry
+        newChildEntry = new ChildEntry<T>;
         newChildEntry->key = sortedVec[halfKey]->key;
         newChildEntry->newPageNum = newPageNum;
 
@@ -1120,6 +1125,7 @@ namespace PeterDB {
         fh.fileHandle.readPage(newPageNum, newPageBuffer);
 
         //fill newChildEntry
+        newChildEntry = new ChildEntryStr;
         int len = 0;
         memcpy(&len, sortedVec[halfKey]->key, sizeof(int));
         newChildEntry->key = new char[len + sizeof(int)];
@@ -1278,6 +1284,57 @@ namespace PeterDB {
             }
         }
         return RC::ok;
+    }
+
+    template<class T>
+    RC IndexManager::delLeafEntry(IXFileHandle &fh, char *pageBuffer, Entry<T> *entry, unsigned entryLen) {
+        unsigned keyNum = getKeyNum(pageBuffer);
+        unsigned totalLen = getLeafTotalLen(pageBuffer, true);
+        unsigned freeSpace = getFreeSpace(pageBuffer);
+        unsigned path = 0;
+        T pageKey;
+        for (int i = 0; i < keyNum; i++) {
+            memcpy(&pageKey, pageBuffer + path, sizeof(int));
+            if (checkEqual(pageKey, entry->key)) {
+                unsigned moveLen = totalLen - path - entryLen;
+                memmove(pageBuffer + path, pageBuffer + path + entryLen, moveLen);
+                freeSpace += entryLen;
+                keyNum--;
+                updateFreeSpace(pageBuffer, freeSpace);
+                updateKeyNum(pageBuffer, keyNum);
+                return RC::ok;
+            }
+            path += entryLen;
+        }
+        //not found
+        return RC::RM_EOF;
+    }
+
+    RC IndexManager::delLeafEntryStr(IXFileHandle &fh, char *pageBuffer, EntryStr *entry, unsigned int entryLen) {
+        unsigned keyNum = getKeyNum(pageBuffer);
+        unsigned totalLen = getLeafTotalLen(pageBuffer, true);
+        unsigned freeSpace = getFreeSpace(pageBuffer);
+        unsigned path = 0;
+        char *pageKey;
+        for (int i = 0; i < keyNum; i++) {
+            int len = 0;
+            memcpy(&len, pageBuffer + path, sizeof(int));
+            pageKey = new char[len + 4];
+            memcpy(pageKey, pageBuffer + path, len + sizeof(int));
+            if (checkEqual(pageKey, entry->key)) {
+                unsigned moveLen = totalLen - path - entryLen;
+                memmove(pageBuffer + path, pageBuffer + path + entryLen, moveLen);
+                freeSpace += entryLen;
+                keyNum--;
+                updateFreeSpace(pageBuffer, freeSpace);
+                updateKeyNum(pageBuffer, keyNum);
+                return RC::ok;
+            }
+            delete[]pageKey;
+            path += len + 2 * sizeof(int) + sizeof(short);
+        }
+        //not found
+        return RC::RM_EOF;
     }
 
 };

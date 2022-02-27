@@ -82,7 +82,7 @@ namespace PeterDB {
         //tools
         RC insertHiddenPage(FILE *fd);
 
-//        RC insertDummyNode(FILE *fd);
+        RC insertDummyNode(FILE *fd, FileHandle &fileHandle);
 
         RC readHiddenPage(FILE *fd, FileHandle &fileHandle);
 
@@ -90,7 +90,7 @@ namespace PeterDB {
 
         RC writeHiddenPage(FileHandle &fileHandle, unsigned root);
 
-//        RC writeDummyNode(IXFileHandle &fileHandle);
+        RC writeDummyNode(IXFileHandle &fileHandle);
 
         RC insertNewIndexPage(IXFileHandle &fh, unsigned &pageNum, bool isLeafNode);
 
@@ -166,11 +166,14 @@ namespace PeterDB {
 
         RC checkIndexKeysStr(IXFileHandle &fh, const char *pageBuffer, const void *lowKey, unsigned &pageNum);
 
-        template<class T>
-        RC delChildEntry(IXFileHandle &fh, char *pageBuffer, ChildEntry<T> *newChildEntry, unsigned entryLen);
+        //no need for this
+//        template<class T>
+//        RC delChildEntry(IXFileHandle &fh, char *pageBuffer, ChildEntry<T> *newChildEntry, unsigned entryLen);
 
         template<class T>
         RC delLeafEntry(IXFileHandle &fh, char *pageBuffer, Entry<T> *entry, unsigned entryLen);
+
+        RC delLeafEntryStr(IXFileHandle &fh, char *pageBuffer, EntryStr *entry, unsigned entryLen);
 
         template<class T>
         RC getNodeKeys(IXFileHandle &fh, const unsigned currentNode, std::vector<T> &vec) const;
@@ -187,6 +190,9 @@ namespace PeterDB {
 
         RC dfsPrintStr(IXFileHandle &ixFileHandle, std::ostream &out, unsigned int currentNode,
                        unsigned int depth) const;
+
+        RC recurDelEntry(IXFileHandle &ixFileHandle, const Attribute &attribute, unsigned pageNum, const void *key,
+                         const RID &rid);
 
 
     protected:
@@ -247,6 +253,7 @@ namespace PeterDB {
         unsigned rootPage;
         bool isKeyFixed;
         FileHandle fileHandle;
+        std::string fileName;
 
         // Constructor
         IXFileHandle();
