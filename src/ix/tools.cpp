@@ -517,7 +517,7 @@ namespace PeterDB {
         char pageBuffer[PAGE_SIZE];
         ixFileHandle->fileHandle.readPage(pageIndex, pageBuffer);
         unsigned short keyNum = getKeyNum(pageBuffer);
-        if (keyNum == keyIndex - 1) {
+        if (keyNum == keyIndex) {
             keyIndex = 0;
             pageIndex = getNextPage(pageBuffer);
             if (pageIndex == NULL_PAGE)return RM_EOF;
@@ -560,7 +560,7 @@ namespace PeterDB {
         char pageBuffer[PAGE_SIZE];
         ixFileHandle->fileHandle.readPage(pageIndex, pageBuffer);
         unsigned short keyNum = getKeyNum(pageBuffer);
-        if (keyNum == keyIndex - 1) {
+        if (keyNum == keyIndex) {
             keyIndex = 0;
             pageIndex = getNextPage(pageBuffer);
             if (pageIndex == NULL_PAGE)return RM_EOF;
@@ -921,8 +921,7 @@ namespace PeterDB {
             memcpy(&(entry->rid.slotNum), pageBuffer + path, sizeof(short));
             path += sizeof(short);
             if (newEntry != nullptr && checkBigger(entry->key, newEntry->key)) {
-                vec.insert(vec.begin() + i, newEntry);
-                delete newEntry;
+                vec.push_back( newEntry);
                 newEntry = nullptr;
             }
             vec.push_back(entry);
@@ -956,8 +955,7 @@ namespace PeterDB {
             memcpy(&(entry->rid.slotNum), pageBuffer + path, sizeof(short));
             path += sizeof(short);
             if (newEntry != nullptr && checkBiggerStr(entry->key, newEntry->key)) {
-                vec.insert(vec.begin() + i, newEntry);
-                delete newEntry;
+                vec.push_back( newEntry);
                 newEntry = nullptr;
             }
             vec.push_back(entry);
@@ -1093,6 +1091,7 @@ namespace PeterDB {
             fh.fileHandle.readPage(oriNextPage, nextPageBuffer);
             updatePrevPage(nextPageBuffer, newPageNum);
             fh.fileHandle.writePage(oriNextPage, nextPageBuffer);
+            delete []nextPageBuffer;
         }
         fh.fileHandle.writePage(tarPage, tarPageBuffer);
         fh.fileHandle.writePage(newPageNum, newPageBuffer);
@@ -1146,6 +1145,7 @@ namespace PeterDB {
             fh.fileHandle.readPage(oriNextPage, nextPageBuffer);
             updatePrevPage(nextPageBuffer, newPageNum);
             fh.fileHandle.writePage(oriNextPage, nextPageBuffer);
+            delete []nextPageBuffer;
         }
         fh.fileHandle.writePage(tarPage, tarPageBuffer);
         fh.fileHandle.writePage(newPageNum, newPageBuffer);
