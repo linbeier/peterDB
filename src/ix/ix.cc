@@ -85,18 +85,21 @@ namespace PeterDB {
             insertNewIndexPage(ixFileHandle, tempPageNum, true);
         }
         if (attribute.type == TypeReal) {
+            ixFileHandle.isKeyFixed = true;
             auto *entry = new Entry<float>;
             entry->key = *(float *) key;
             entry->rid = rid;
             ChildEntry<float> *childEntry = nullptr;
             recurInsertEntry<float>(ixFileHandle, ixFileHandle.rootPage, entry, childEntry);
         } else if (attribute.type == TypeInt) {
+            ixFileHandle.isKeyFixed = true;
             auto *entry = new Entry<int>;
             entry->key = *(int *) key;
             entry->rid = rid;
             ChildEntry<int> *childEntry = nullptr;
             recurInsertEntry<int>(ixFileHandle, ixFileHandle.rootPage, entry, childEntry);
         } else {
+            ixFileHandle.isKeyFixed = false;
             auto *entry = new EntryStr;
             entry->key = (char *) key;
             entry->rid = rid;
@@ -116,6 +119,7 @@ namespace PeterDB {
             unsigned keyPage = 0;
             checkIndexKeys<T>(fh, pageBuffer, &entry->key, keyPage);
             recurInsertEntry(fh, keyPage, entry, newChildEntry);
+            fh.fileHandle.readPage(nodePage, pageBuffer);
             if (newChildEntry == nullptr) {
                 return RC::ok;
             } else {
@@ -150,11 +154,13 @@ namespace PeterDB {
                 }
             }
         }
-        if (checkLeafNode(pageBuffer)) {
+//        fh.fileHandle.readPage(nodePage, pageBuffer);
+        else if (checkLeafNode(pageBuffer)) {
             unsigned freeSpace = getFreeSpace(pageBuffer);
             unsigned entryLen = getEntryLen(entry);
             if (freeSpace >= entryLen) {
                 putLeafEntry(fh, pageBuffer, entry, entryLen);
+                delete newChildEntry;
                 newChildEntry = nullptr;
                 fh.fileHandle.writePage(nodePage, pageBuffer);
                 return RC::ok;

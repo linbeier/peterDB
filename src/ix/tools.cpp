@@ -616,6 +616,9 @@ namespace PeterDB {
     IndexManager::putChildEntry(IXFileHandle &fh, char *pageBuffer, ChildEntry<T> *newChildEntry, unsigned entryLen) {
         unsigned short keyNum = getKeyNum(pageBuffer);
         unsigned short freeSpace = getFreeSpace(pageBuffer);
+        if(keyNum == 0){
+            freeSpace -= 4;
+        }
         //first page key that is bigger than entry's key
         unsigned breakKey = 0;
         //first page number
@@ -653,6 +656,9 @@ namespace PeterDB {
                                       unsigned int entryLen) {
         unsigned short keyNum = getKeyNum(pageBuffer);
         unsigned short freeSpace = getFreeSpace(pageBuffer);
+        if(keyNum == 0){
+            freeSpace -= 4;
+        }
         //first page key that is bigger than entry's key
         unsigned breakKey = 0;
         //first page number
@@ -666,7 +672,7 @@ namespace PeterDB {
             int len = 0;
             memcpy(&len, pageBuffer + path, sizeof(int));
             pageKey = new char[len + sizeof(int)];
-            memcpy(&pageKey, pageBuffer + path, len + sizeof(int));
+            memcpy(pageKey, pageBuffer + path, len + sizeof(int));
             path += len + sizeof(int);
 
             if (checkBiggerStr(pageKey, newChildEntry->key)) {
@@ -746,7 +752,7 @@ namespace PeterDB {
             int len = 0;
             memcpy(&len, pageBuffer + path, sizeof(int));
             pageKey = new char[len + sizeof(int)];
-            memcpy(&pageKey, pageBuffer + path, len + sizeof(int));
+            memcpy(pageKey, pageBuffer + path, len + sizeof(int));
             path += len + sizeof(int);
 
             if (checkBiggerStr(pageKey, entry->key)) {
@@ -859,6 +865,7 @@ namespace PeterDB {
                 inserted = true;
             }
             vec.push_back(entry);
+            path += sizeof(int);
         }
         if (!inserted) {
             vec.push_back(newChildEntry);
@@ -892,6 +899,7 @@ namespace PeterDB {
                 inserted = true;
             }
             vec.push_back(entry);
+            path += sizeof(int);
         }
         if (!inserted) {
             vec.push_back(newChildEntry);
