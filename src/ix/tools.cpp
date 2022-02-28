@@ -870,7 +870,7 @@ namespace PeterDB {
         if (!inserted) {
             auto *entry = new ChildEntry<T>;
             memcpy(&(entry->key), &newChildEntry->key, sizeof(int));
-            memcpy(&(entry->newPageNum), &newChildEntry, sizeof(int));
+            memcpy(&(entry->newPageNum), &newChildEntry->newPageNum, sizeof(int));
             vec.push_back(entry);
         }
 
