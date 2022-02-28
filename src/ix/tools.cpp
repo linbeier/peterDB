@@ -861,14 +861,17 @@ namespace PeterDB {
             path += sizeof(int);
             memcpy(&(entry->newPageNum), pageBuffer + path, sizeof(int));
             if (newChildEntry != nullptr && checkBigger(entry->key, newChildEntry->key)) {
-                vec.insert(vec.begin() + i, newChildEntry);
+                vec.push_back(newChildEntry);
                 inserted = true;
             }
             vec.push_back(entry);
             path += sizeof(int);
         }
         if (!inserted) {
-            vec.push_back(newChildEntry);
+            auto *entry = new ChildEntry<T>;
+            memcpy(&(entry->key), &newChildEntry->key, sizeof(int));
+            memcpy(&(entry->newPageNum), &newChildEntry, sizeof(int));
+            vec.push_back(entry);
         }
 
         return RC::ok;
@@ -895,14 +898,21 @@ namespace PeterDB {
             path += sizeof(int) + len;
             memcpy(&entry->newPageNum, pageBuffer + path, sizeof(int));
             if (newChildEntry != nullptr && checkBiggerStr(entry->key, newChildEntry->key)) {
-                vec.insert(vec.begin() + i, newChildEntry);
+                vec.push_back(newChildEntry);
                 inserted = true;
             }
             vec.push_back(entry);
             path += sizeof(int);
         }
         if (!inserted) {
-            vec.push_back(newChildEntry);
+            auto *entry = new ChildEntryStr;
+            int len = 0;
+            memcpy(&len, newChildEntry->key, sizeof(int));
+            entry->key = new char[len + 4];
+            memcpy(entry->key, newChildEntry->key, sizeof(int) + len);
+            path += sizeof(int) + len;
+            memcpy(&entry->newPageNum, &newChildEntry->newPageNum, sizeof(int));
+            vec.push_back(entry);
         }
 
         return RC::ok;
@@ -1007,7 +1017,7 @@ namespace PeterDB {
 
         //move rest to new node
         memcpy(newPageBuffer, &sortedVec[halfKey]->newPageNum, sizeof(int));
-        for (int i = halfKey; i < keyNum; i++) {
+        for (int i = halfKey + 1; i < keyNum; i++) {
             unsigned entryLen = getChildEntryLen(sortedVec[i]);
             putChildEntry(fh, newPageBuffer, sortedVec[i], entryLen);
         }
@@ -1049,7 +1059,7 @@ namespace PeterDB {
 
         //move rest to new node
         memcpy(newPageBuffer, &sortedVec[halfKey]->newPageNum, sizeof(int));
-        for (int i = halfKey; i < keyNum; i++) {
+        for (int i = halfKey + 1; i < keyNum; i++) {
             unsigned entryLen = getChildEntryLenStr(sortedVec[i]);
             putChildEntryStr(fh, newPageBuffer, sortedVec[i], entryLen);
         }
