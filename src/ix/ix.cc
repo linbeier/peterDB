@@ -112,7 +112,10 @@ namespace PeterDB {
     template<class T>
     RC IndexManager::recurInsertEntry(IXFileHandle &fh, unsigned int nodePage, Entry<T> *entry,
                                       ChildEntry<T> *&newChildEntry) {
-
+        if (fh.fileHandle.totalPage == 0) {
+            unsigned tempPageNum = 0;
+            insertNewIndexPage(fh, tempPageNum, true);
+        }
         char pageBuffer[PAGE_SIZE];
         fh.fileHandle.readPage(nodePage, pageBuffer);
         if (!checkLeafNode(pageBuffer)) {
@@ -192,7 +195,6 @@ namespace PeterDB {
         if (fh.fileHandle.totalPage == 0) {
             unsigned tempPageNum = 0;
             insertNewIndexPage(fh, tempPageNum, true);
-
         }
         char pageBuffer[PAGE_SIZE];
         fh.fileHandle.readPage(nodePage, pageBuffer);

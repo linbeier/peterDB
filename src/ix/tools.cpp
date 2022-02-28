@@ -616,7 +616,7 @@ namespace PeterDB {
     IndexManager::putChildEntry(IXFileHandle &fh, char *pageBuffer, ChildEntry<T> *newChildEntry, unsigned entryLen) {
         unsigned short keyNum = getKeyNum(pageBuffer);
         unsigned short freeSpace = getFreeSpace(pageBuffer);
-        if(keyNum == 0){
+        if (keyNum == 0) {
             freeSpace -= 4;
         }
         //first page key that is bigger than entry's key
@@ -656,7 +656,7 @@ namespace PeterDB {
                                       unsigned int entryLen) {
         unsigned short keyNum = getKeyNum(pageBuffer);
         unsigned short freeSpace = getFreeSpace(pageBuffer);
-        if(keyNum == 0){
+        if (keyNum == 0) {
             freeSpace -= 4;
         }
         //first page key that is bigger than entry's key
@@ -929,7 +929,7 @@ namespace PeterDB {
             memcpy(&(entry->rid.slotNum), pageBuffer + path, sizeof(short));
             path += sizeof(short);
             if (newEntry != nullptr && checkBigger(entry->key, newEntry->key)) {
-                vec.push_back( newEntry);
+                vec.push_back(newEntry);
                 newEntry = nullptr;
             }
             vec.push_back(entry);
@@ -963,7 +963,7 @@ namespace PeterDB {
             memcpy(&(entry->rid.slotNum), pageBuffer + path, sizeof(short));
             path += sizeof(short);
             if (newEntry != nullptr && checkBiggerStr(entry->key, newEntry->key)) {
-                vec.push_back( newEntry);
+                vec.push_back(newEntry);
                 newEntry = nullptr;
             }
             vec.push_back(entry);
@@ -1006,6 +1006,7 @@ namespace PeterDB {
         newChildEntry->newPageNum = newPageNum;
 
         //move rest to new node
+        memcpy(newPageBuffer, &sortedVec[halfKey]->newPageNum, sizeof(int));
         for (int i = halfKey; i < keyNum; i++) {
             unsigned entryLen = getChildEntryLen(sortedVec[i]);
             putChildEntry(fh, newPageBuffer, sortedVec[i], entryLen);
@@ -1047,6 +1048,7 @@ namespace PeterDB {
         newChildEntry->newPageNum = newPageNum;
 
         //move rest to new node
+        memcpy(newPageBuffer, &sortedVec[halfKey]->newPageNum, sizeof(int));
         for (int i = halfKey; i < keyNum; i++) {
             unsigned entryLen = getChildEntryLenStr(sortedVec[i]);
             putChildEntryStr(fh, newPageBuffer, sortedVec[i], entryLen);
@@ -1099,7 +1101,7 @@ namespace PeterDB {
             fh.fileHandle.readPage(oriNextPage, nextPageBuffer);
             updatePrevPage(nextPageBuffer, newPageNum);
             fh.fileHandle.writePage(oriNextPage, nextPageBuffer);
-            delete []nextPageBuffer;
+            delete[]nextPageBuffer;
         }
         fh.fileHandle.writePage(tarPage, tarPageBuffer);
         fh.fileHandle.writePage(newPageNum, newPageBuffer);
@@ -1153,7 +1155,7 @@ namespace PeterDB {
             fh.fileHandle.readPage(oriNextPage, nextPageBuffer);
             updatePrevPage(nextPageBuffer, newPageNum);
             fh.fileHandle.writePage(oriNextPage, nextPageBuffer);
-            delete []nextPageBuffer;
+            delete[]nextPageBuffer;
         }
         fh.fileHandle.writePage(tarPage, tarPageBuffer);
         fh.fileHandle.writePage(newPageNum, newPageBuffer);
