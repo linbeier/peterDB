@@ -202,6 +202,7 @@ namespace PeterDB {
             unsigned keyPage = 0;
             checkIndexKeysStr(fh, pageBuffer, entry->key, keyPage);
             recurInsertEntryStr(fh, keyPage, entry, newChildEntry);
+            fh.fileHandle.readPage(nodePage, pageBuffer);
             if (newChildEntry == nullptr) {
                 return RC::ok;
             } else {
