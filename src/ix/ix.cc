@@ -140,6 +140,8 @@ namespace PeterDB {
                     splitIndexPage(fh, nodePage, newPage, newChildEntry);
                     unsigned childEntryLen = getChildEntryLen(newChildEntry);
                     if (nodePage == fh.rootPage) {
+//                        std::vector<ChildEntry<T>*> vec;
+//                        formChildEntry(fh, nodePage, newChildEntry, sortedVec);
                         unsigned newRootPage = 0;
                         insertNewIndexPage(fh, newRootPage, false);
                         char newRootBuffer[PAGE_SIZE];
