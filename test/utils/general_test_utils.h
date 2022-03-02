@@ -7,6 +7,7 @@
 #include <sys/resource.h>
 #include <sstream>
 #include <fstream>
+#include <random>
 
 #include "glog/logging.h"
 #include "gtest/gtest.h"
@@ -145,7 +146,8 @@ namespace PeterDBTesting {
     }
 
     void checkPrintRecord(const std::string &expected, const std::string &target, bool containsMode = false,
-                          const std::vector<std::string> &ignoreValues = std::vector<std::string>()) {
+                          const std::vector<std::string> &ignoreValues = std::vector<std::string>(),
+                          const bool caseInsensitive = false) {
         GTEST_LOG_(INFO) << "Target string: " << target;
         if (std::strcmp(normalizeKVString(expected).c_str(), target.c_str()) == 0)
             return;
@@ -162,25 +164,30 @@ namespace PeterDBTesting {
             ASSERT_GE(targetMap.size(), expectedMap.size()) << "Fields count should be greater or equal to expected.";
         }
 
-        for (size_t i = 0; i < expectedMap.size(); i++) {
-            std::pair<std::string, std::string> targetPair = *(targetMap.begin() + i);
-            std::pair<std::string, std::string> expectedPair = *(expectedMap.begin() + i);
-            ASSERT_EQ(targetPair.first, expectedPair.first)
-                                        << "Field (" << targetPair.first
-                                        << ") is not found or not in correct order.";
+        for (const auto & expectedIter : expectedMap)
+        {
+            auto expectedKey =  expectedIter.first;
+            auto expectedValue = expectedIter.second;
 
-            if (std::find(ignoreValues.begin(), ignoreValues.end(), targetPair.first) == ignoreValues.end()) {
-                if (isFloat(targetPair.second)) {
-                    ASSERT_FLOAT_EQ(std::stof(targetPair.second), std::stof(expectedPair.second))
-                                                << "Field (" << targetPair.first
+            ASSERT_TRUE((targetMap.contains(expectedKey)))
+                                        << "Field (" << expectedKey << ") is not found.";
+
+            auto targetValue = targetMap[expectedKey];
+            if (std::find(ignoreValues.begin(), ignoreValues.end(), expectedKey) == ignoreValues.end()) {
+                if (isFloat(targetValue)) {
+                    ASSERT_FLOAT_EQ(std::stof(targetValue), std::stof(expectedValue))
+                                                << "Field (" << expectedKey
                                                 << ") value should be equal, float values are checked in a range.";
                 } else {
-                    ASSERT_EQ(targetPair.second, expectedPair.second)
-                                                << "Field (" << targetPair.first << ") value should be equal.";
+                    if (caseInsensitive) {
+                        targetValue = to_lower(targetValue);
+                        expectedValue = to_lower(expectedValue);
+                    }
+                    ASSERT_EQ(targetValue, expectedValue)
+                                                << "Field (" << expectedKey << ") value should be equal.";
                 }
             }
         }
-
     }
 
     static void getByteOffset(unsigned pos, unsigned &bytes, unsigned &offset) {
@@ -191,9 +198,9 @@ namespace PeterDBTesting {
 
     static void setBit(char &src, bool value, unsigned offset) {
         if (value) {
-            src |= (unsigned) 1 << offset;
+            src |= 1u << offset;
         } else {
-            src &= ~((unsigned) 1 << offset);
+            src &= ~(1u << offset);
         }
     }
 

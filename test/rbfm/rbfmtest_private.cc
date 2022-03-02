@@ -434,9 +434,9 @@ namespace PeterDBTesting {
         unsigned updatedReadPageCount = 0, updatedWritePageCount = 0, updatedAppendPageCount = 0;
         unsigned deltaReadPageCount, deltaWritePageCount, deltaAppendPageCount;
 
-        // Get the initial number of pages in the file.
-        // If the file size is bigger than number of pages, we assume there are hidden pages.
-        bool hiddenPageExists = fileHandle.getNumberOfPages() < getFileSize(fileName) % PAGE_SIZE;
+//        // Get the initial number of pages in the file.
+//        // If the file size is bigger than number of pages, we assume there are hidden pages.
+//        bool hiddenPageExists = fileHandle.getNumberOfPages() < getFileSize(fileName) / PAGE_SIZE;
 
         PeterDB::RID rid;
         size_t recordSize = 0;
@@ -480,19 +480,20 @@ namespace PeterDBTesting {
         deltaWritePageCount = updatedWritePageCount - writePageCount;
         deltaAppendPageCount = updatedAppendPageCount - appendPageCount;
 
-        // If a directory exists in hidden pages, then we need to read at least one page and append one page.
+        // If a directory exists, then we need to read at least one page and append one page.
         // Also, we need to update the directory structure. So, we need to have one write.
-        if (hiddenPageExists) {
-            ASSERT_TRUE(deltaReadPageCount >= 1 && deltaReadPageCount < numRecords)
-                                        << "The implementation regarding insertRecord() is not correct.";
-            ASSERT_GE(deltaWritePageCount, 1) << "The implementation regarding insertRecord() is not correct.";
-            ASSERT_GE(deltaAppendPageCount, 1) << "The implementation regarding insertRecord() is not correct.";
+        bool checkDirectoryImplementation =
+                (deltaReadPageCount >= 1 && deltaReadPageCount < numRecords) &&
+                        (deltaWritePageCount >= 1) &&
+                        (deltaAppendPageCount >= 1);
 
-        } else {
-            // Each page can only contain one record. So, deltaReadPageCount should be greater than or equal to 30
-            // since the system needs to go through all pages from the beginning.
-            ASSERT_GE(deltaReadPageCount, numRecords) << "The implementation regarding insertRecord() is not correct.";
-        }
+        // For implementation without a directory:
+        // Each page can only contain one record. deltaReadPageCount should be greater than or equal to 30
+        // since the system needs to go through all pages from the beginning.
+        bool checkNoDirectoryImplementation = (deltaReadPageCount >= numRecords);
+
+        ASSERT_TRUE(checkDirectoryImplementation || checkNoDirectoryImplementation)
+            << "The implementation regarding insertRecord() is not correct.";
 
         ASSERT_GT(getFileSize(fileName), 0) << "File Size should not be zero at this moment.";
     }
@@ -659,4 +660,3 @@ namespace PeterDBTesting {
     }
 
 }
-

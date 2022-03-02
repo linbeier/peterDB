@@ -80,9 +80,10 @@ namespace PeterDBTesting {
 
                 }
             }
-
+            delete[] a;
             return table_attrs;
         }
+        delete[] a;
         return std::vector<PeterDB::Attribute>();
     };
 
@@ -330,6 +331,26 @@ namespace PeterDBTesting {
                 recordDescriptor.push_back(attr);
             }
             free(suffix);
+        }
+
+        static void
+        checkTimeComplexity(const std::function<void(int)> &func,
+                            const std::function<void(std::vector<unsigned>&)> &expectedTimeComplexity,
+                            const std::function<unsigned(int)> &metricFunc, int numRounds) {
+            std::vector<unsigned> metrics;
+            unsigned lastMetric = 0;
+//            std::unordered_set<unsigned> constants;
+            // Run target function numRounds times
+            for (unsigned i = 0; i < numRounds; ++i) {
+                // Run the target function
+                func(i);
+                // Get metric for this run
+                unsigned metric = metricFunc(i);
+                metrics.push_back(metric - lastMetric);
+                // check time complexity
+                expectedTimeComplexity(metrics);
+                lastMetric = metric;
+            }
         }
 
         // Record Descriptor for TweetMessage
