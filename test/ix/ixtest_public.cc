@@ -398,7 +398,6 @@ namespace PeterDBTesting {
         ASSERT_EQ(ix.scan(ixFileHandle, ageAttr, &key2, &key2, true, true, ix_ScanIterator), success)
                                     << "indexManager::scan() should succeed.";
 
-
         // iterate
         unsigned count = 0;
         while (ix_ScanIterator.getNextEntry(rid, &key) == success) {
