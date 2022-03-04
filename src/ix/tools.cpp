@@ -582,7 +582,7 @@ namespace PeterDB {
         //reach keyIndex
         int len = 0;
         memcpy(&len, pageBuffer + path, sizeof(int));
-        memcpy(&key, pageBuffer + path, len + sizeof(int));
+        memcpy(key, pageBuffer + path, len + sizeof(int));
         path += sizeof(int);
         std::string pageKey(pageBuffer + path, len);
         path += len;
@@ -595,8 +595,8 @@ namespace PeterDB {
         }
         if (highKeyInclusive) {
             if (pageKey <= highKeyStr) {
-                memcpy(&rid.pageNum, pageBuffer + path, sizeof(int));
-                memcpy(&rid.slotNum, pageBuffer + path + sizeof(int), sizeof(short));
+                memcpy(&(rid.pageNum), pageBuffer + path, sizeof(int));
+                memcpy(&(rid.slotNum), pageBuffer + path + sizeof(int), sizeof(short));
                 keyIndex++;
                 return RC::ok;
             }
@@ -860,7 +860,7 @@ namespace PeterDB {
             memcpy(&(entry->key), pageBuffer + path, sizeof(int));
             path += sizeof(int);
             memcpy(&(entry->newPageNum), pageBuffer + path, sizeof(int));
-            if (newChildEntry != nullptr && checkBigger(entry->key, newChildEntry->key)) {
+            if (!inserted && newChildEntry != nullptr && checkBigger(entry->key, newChildEntry->key)) {
                 auto *entry = new ChildEntry<T>;
                 memcpy(&(entry->key), &newChildEntry->key, sizeof(int));
                 memcpy(&(entry->newPageNum), &newChildEntry->newPageNum, sizeof(int));
@@ -900,7 +900,7 @@ namespace PeterDB {
             memcpy(entry->key, pageBuffer + path, sizeof(int) + len);
             path += sizeof(int) + len;
             memcpy(&entry->newPageNum, pageBuffer + path, sizeof(int));
-            if (newChildEntry != nullptr && checkBiggerStr(entry->key, newChildEntry->key)) {
+            if (!inserted && newChildEntry != nullptr && checkBiggerStr(entry->key, newChildEntry->key)) {
                 auto *entry = new ChildEntryStr;
                 int len = 0;
                 memcpy(&len, newChildEntry->key, sizeof(int));
@@ -1250,7 +1250,7 @@ namespace PeterDB {
                 path += sizeof(int);
                 std::string key(pageBuffer + path, len);
                 vec.push_back(key);
-                path += sizeof(int) * 2 + len;
+                path += sizeof(int)  + len;
             }
         } else {
             int path = 0;
@@ -1261,7 +1261,7 @@ namespace PeterDB {
                 path += sizeof(int);
                 std::string key(pageBuffer + path, len);
                 vec.push_back(key);
-                path += sizeof(int) * 2 + len + sizeof(short);
+                path += sizeof(int) + len + sizeof(short);
             }
         }
 

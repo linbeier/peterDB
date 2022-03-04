@@ -416,6 +416,9 @@ namespace PeterDB {
             getNodePages<T>(ixFileHandle, currentNode, pageVec);
             for (int i = 0; i < pageVec.size(); ++i) {
                 dfsPrint<T>(ixFileHandle, out, pageVec[i].pageNum, depth);
+                if(i != pageVec.size() - 1) {
+                    out << ",";
+                }
             }
             for (int i = 0; i < depth - 1; i++) {
                 out << "\t";
@@ -473,6 +476,9 @@ namespace PeterDB {
             getNodePagesStr(ixFileHandle, currentNode, pageVec);
             for (int i = 0; i < pageVec.size(); ++i) {
                 dfsPrintStr(ixFileHandle, out, pageVec[i].pageNum, depth);
+                if(i != pageVec.size() - 1) {
+                    out << "," << std::endl;
+                }
             }
             for (int i = 0; i < depth - 1; i++) {
                 out << "\t";
@@ -485,7 +491,7 @@ namespace PeterDB {
             out << "{" << keys << ": [";
             std::vector<std::string> keyVec;
             std::vector<RID> ridVec;
-            getNodeKeys(ixFileHandle, currentNode, keyVec);
+            getNodeKeysStr(ixFileHandle, currentNode, keyVec);
             getNodePagesStr(ixFileHandle, currentNode, ridVec);
 
             for (int i = 0; i < keyVec.size(); i++) {
@@ -495,7 +501,8 @@ namespace PeterDB {
                 }
             }
 
-            out << "]}," << std::endl;
+//            out << "]}," << std::endl;
+            out << "]}";
         }
         return RC::ok;
     }
