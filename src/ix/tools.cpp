@@ -514,13 +514,14 @@ namespace PeterDB {
     //also check high key
     template<class T>
     RC IX_ScanIterator::getRIDviaIndex(RID &rid, void *key) {
-        char pageBuffer[PAGE_SIZE];
-        ixFileHandle->fileHandle.readPage(pageIndex, pageBuffer);
+//        char pageBuffer[PAGE_SIZE];
+//        ixFileHandle->fileHandle.readPage(pageIndex, pageBuffer);
         unsigned short keyNum = getKeyNum(pageBuffer);
         if (keyNum == keyIndex) {
             keyIndex = 0;
             pageIndex = getNextPage(pageBuffer);
             if (pageIndex == NULL_PAGE)return RM_EOF;
+            ixFileHandle->fileHandle.readPage(pageIndex, pageBuffer);
             return getRIDviaIndex<T>(rid, key);
         }
 
@@ -557,13 +558,14 @@ namespace PeterDB {
     }
 
     RC IX_ScanIterator::getRIDviaIndexStr(RID &rid, void *key) {
-        char pageBuffer[PAGE_SIZE];
-        ixFileHandle->fileHandle.readPage(pageIndex, pageBuffer);
+//        char pageBuffer[PAGE_SIZE];
+//        ixFileHandle->fileHandle.readPage(pageIndex, pageBuffer);
         unsigned short keyNum = getKeyNum(pageBuffer);
         if (keyNum == keyIndex) {
             keyIndex = 0;
             pageIndex = getNextPage(pageBuffer);
             if (pageIndex == NULL_PAGE)return RM_EOF;
+            ixFileHandle->fileHandle.readPage(pageIndex, pageBuffer);
             return getRIDviaIndexStr(rid, key);
         }
 

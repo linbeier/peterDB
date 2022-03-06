@@ -368,6 +368,9 @@ namespace PeterDB {
                               ix_ScanIterator.lowKey, ix_ScanIterator.pageIndex,
                               ix_ScanIterator.keyIndex, ix_ScanIterator.noMatchedKey,
                               ix_ScanIterator.lowKeyInclusive);
+
+        ix_ScanIterator.pageBuffer = new char[PAGE_SIZE];
+        ixFileHandle.fileHandle.readPage(ix_ScanIterator.pageIndex, ix_ScanIterator.pageBuffer);
         if (re != RC::ok) {
             return RC::RM_EOF;
         }
@@ -377,11 +380,11 @@ namespace PeterDB {
 
     RC IndexManager::printBTree(IXFileHandle &ixFileHandle, const Attribute &attribute, std::ostream &out) const {
         if (attribute.type == TypeReal) {
-            dfsPrint<float>(ixFileHandle, out, ixFileHandle.rootPage, 0);
+            return dfsPrint<float>(ixFileHandle, out, ixFileHandle.rootPage, 0);
         } else if (attribute.type == TypeInt) {
-            dfsPrint<int>(ixFileHandle, out, ixFileHandle.rootPage, 0);
+            return dfsPrint<int>(ixFileHandle, out, ixFileHandle.rootPage, 0);
         } else {
-            dfsPrintStr(ixFileHandle, out, ixFileHandle.rootPage, 0);
+            return dfsPrintStr(ixFileHandle, out, ixFileHandle.rootPage, 0);
         }
     }
 
@@ -416,7 +419,7 @@ namespace PeterDB {
             getNodePages<T>(ixFileHandle, currentNode, pageVec);
             for (int i = 0; i < pageVec.size(); ++i) {
                 dfsPrint<T>(ixFileHandle, out, pageVec[i].pageNum, depth);
-                if(i != pageVec.size() - 1) {
+                if (i != pageVec.size() - 1) {
                     out << ",";
                 }
             }
@@ -435,6 +438,7 @@ namespace PeterDB {
             getNodePages<T>(ixFileHandle, currentNode, ridVec);
 
             for (int i = 0; i < keyVec.size(); i++) {
+
                 out << "\"" << keyVec[i] << ":[(" << ridVec[i].pageNum << "," << ridVec[i].slotNum << ")]\"";
                 if (i != keyVec.size() - 1) {
                     out << ",";
@@ -476,7 +480,7 @@ namespace PeterDB {
             getNodePagesStr(ixFileHandle, currentNode, pageVec);
             for (int i = 0; i < pageVec.size(); ++i) {
                 dfsPrintStr(ixFileHandle, out, pageVec[i].pageNum, depth);
-                if(i != pageVec.size() - 1) {
+                if (i != pageVec.size() - 1) {
                     out << "," << std::endl;
                 }
             }
@@ -508,10 +512,13 @@ namespace PeterDB {
     }
 
     IX_ScanIterator::IX_ScanIterator() : ixFileHandle(nullptr), lowKey(nullptr), highKey(nullptr), closed(false),
-                                         noMatchedKey(false) {
+                                         noMatchedKey(false), pageBuffer(nullptr) {
     }
 
     IX_ScanIterator::~IX_ScanIterator() {
+        delete (char *) lowKey;
+        delete (char *) highKey;
+        delete pageBuffer;
     }
 
     RC IX_ScanIterator::getNextEntry(RID &rid, void *key) {

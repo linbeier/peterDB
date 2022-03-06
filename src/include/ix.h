@@ -216,6 +216,7 @@ namespace PeterDB {
         bool lowKeyInclusive;
         bool highKeyInclusive;
         bool noMatchedKey;
+        char *pageBuffer;
 
         unsigned pageIndex;
         unsigned keyIndex;
