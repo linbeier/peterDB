@@ -717,6 +717,15 @@ namespace PeterDB {
                 path = lastPath;
                 break;
             }
+            if (checkEqual(pageKey, entry->key)) {
+                unsigned int pageNum = 0;
+                unsigned short slotNum = 0;
+                memcpy(&pageNum, pageBuffer + path, sizeof(int));
+                memcpy(&slotNum, pageBuffer + path + sizeof(int), sizeof(short));
+                if (pageNum == entry->rid.pageNum && slotNum == entry->rid.slotNum) {
+                    return RC::ok;
+                }
+            }
             //add rid
             path += sizeof(int) + sizeof(short);
         }
@@ -758,6 +767,15 @@ namespace PeterDB {
             if (checkBiggerStr(pageKey, entry->key)) {
                 path = lastPath;
                 break;
+            }
+            if (checkEqualStr(pageKey, entry->key)) {
+                unsigned int pageNum = 0;
+                unsigned short slotNum = 0;
+                memcpy(&pageNum, pageBuffer + path, sizeof(int));
+                memcpy(&slotNum, pageBuffer + path + sizeof(int), sizeof(short));
+                if (pageNum == entry->rid.pageNum && slotNum == entry->rid.slotNum) {
+                    return RC::ok;
+                }
             }
             //add rid
             path += sizeof(int) + sizeof(short);
@@ -1250,7 +1268,7 @@ namespace PeterDB {
                 path += sizeof(int);
                 std::string key(pageBuffer + path, len);
                 vec.push_back(key);
-                path += sizeof(int)  + len;
+                path += sizeof(int) + len;
             }
         } else {
             int path = 0;
