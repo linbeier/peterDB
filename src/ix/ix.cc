@@ -438,8 +438,8 @@ namespace PeterDB {
             getNodePages<T>(ixFileHandle, currentNode, ridVec);
 
             for (int i = 0; i < keyVec.size(); i++) {
-
-                out << "\"" << keyVec[i] << ":[(" << ridVec[i].pageNum << "," << ridVec[i].slotNum << ")]\"";
+                if (keyVec[i] == keyVec[i + 1])
+                    out << "\"" << keyVec[i] << ":[(" << ridVec[i].pageNum << "," << ridVec[i].slotNum << ")]\"";
                 if (i != keyVec.size() - 1) {
                     out << ",";
                 }
@@ -516,9 +516,9 @@ namespace PeterDB {
     }
 
     IX_ScanIterator::~IX_ScanIterator() {
-        delete (char *) lowKey;
-        delete (char *) highKey;
-        delete pageBuffer;
+//        delete (char *) lowKey;
+//        delete (char *) highKey;
+//        delete pageBuffer;
     }
 
     RC IX_ScanIterator::getNextEntry(RID &rid, void *key) {

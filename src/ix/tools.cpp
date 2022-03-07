@@ -1128,14 +1128,19 @@ namespace PeterDB {
         std::vector<Entry<T> *> sortedVec;
         formLeafEntry(fh, tarPage, newEntry, sortedVec);
         unsigned keyNum = sortedVec.size();
-        unsigned halfKey = (keyNum) / 2;
+        unsigned halfNum = (keyNum) / 2;
+        T halfKey = sortedVec[halfNum]->key;
 
         updateKeyNum(tarPageBuffer, 0);
         updateFreeSpace(tarPageBuffer, PAGE_SIZE - 9);
-        for (int i = 0; i < halfKey; ++i) {
+        unsigned count = 0;
+        for (; count < halfNum; ++count) {
+            if (sortedVec[count]->key == halfKey) {
+                break;
+            }
             unsigned entryLen = 0;
-            entryLen = getEntryLen(sortedVec[i]);
-            putLeafEntry(fh, tarPageBuffer, sortedVec[i], entryLen);
+            entryLen = getEntryLen(sortedVec[count]);
+            putLeafEntry(fh, tarPageBuffer, sortedVec[count], entryLen);
         }
         unsigned oriNextPage = getNextPage(tarPageBuffer);
 
@@ -1146,11 +1151,11 @@ namespace PeterDB {
 
         //fill newChildEntry
         newChildEntry = new ChildEntry<T>;
-        newChildEntry->key = sortedVec[halfKey]->key;
+        newChildEntry->key = sortedVec[halfNum]->key;
         newChildEntry->newPageNum = newPageNum;
 
         //move rest to new node
-        for (int i = halfKey; i < keyNum; i++) {
+        for (int i = count; i < keyNum; i++) {
             unsigned entryLen = getEntryLen(sortedVec[i]);
             putLeafEntry(fh, newPageBuffer, sortedVec[i], entryLen);
         }
@@ -1179,14 +1184,23 @@ namespace PeterDB {
         std::vector<EntryStr *> sortedVec;
         formLeafEntryStr(fh, tarPage, newEntry, sortedVec);
         unsigned keyNum = sortedVec.size();
-        unsigned halfKey = (keyNum) / 2;
+        unsigned halfNum = (keyNum) / 2;
+        char *halfKey = nullptr;
+        int len = 0;
+        memcpy(&len, sortedVec[halfNum]->key, sizeof(int));
+        halfKey = new char[len + sizeof(int)];
+        memcpy(halfKey, sortedVec[halfNum]->key, len + sizeof(int));
 
         updateKeyNum(tarPageBuffer, 0);
         updateFreeSpace(tarPageBuffer, PAGE_SIZE - 9);
-        for (int i = 0; i < halfKey; ++i) {
+        unsigned count = 0;
+        for (; count < halfNum; ++count) {
+            if (checkEqualStr(halfKey, sortedVec[count]->key)) {
+                break;
+            }
             unsigned entryLen = 0;
-            entryLen = getEntryLenStr(sortedVec[i]);
-            putLeafEntryStr(fh, tarPageBuffer, sortedVec[i], entryLen);
+            entryLen = getEntryLenStr(sortedVec[count]);
+            putLeafEntryStr(fh, tarPageBuffer, sortedVec[count], entryLen);
         }
         unsigned oriNextPage = getNextPage(tarPageBuffer);
 
@@ -1197,14 +1211,14 @@ namespace PeterDB {
 
         //fill newChildEntry
         newChildEntry = new ChildEntryStr;
-        int len = 0;
-        memcpy(&len, sortedVec[halfKey]->key, sizeof(int));
+        len = 0;
+        memcpy(&len, sortedVec[halfNum]->key, sizeof(int));
         newChildEntry->key = new char[len + sizeof(int)];
-        memcpy(newChildEntry->key, sortedVec[halfKey]->key, len + sizeof(int));
+        memcpy(newChildEntry->key, sortedVec[halfNum]->key, len + sizeof(int));
         newChildEntry->newPageNum = newPageNum;
 
         //move rest to new node
-        for (int i = halfKey; i < keyNum; i++) {
+        for (int i = count; i < keyNum; i++) {
             unsigned entryLen = getEntryLenStr(sortedVec[i]);
             putLeafEntryStr(fh, newPageBuffer, sortedVec[i], entryLen);
         }
@@ -1222,6 +1236,7 @@ namespace PeterDB {
         fh.fileHandle.writePage(tarPage, tarPageBuffer);
         fh.fileHandle.writePage(newPageNum, newPageBuffer);
 
+        delete[]halfKey;
         return RC::ok;
 
     }
