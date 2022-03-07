@@ -523,7 +523,7 @@ namespace PeterDB {
 
     RC IX_ScanIterator::getNextEntry(RID &rid, void *key) {
         if (closed || noMatchedKey) {
-            return RC::RM_EOF;
+            return (RC)-1;
         }
         if (attribute.type == TypeInt) {
             return getRIDviaIndex<int>(rid, key);
