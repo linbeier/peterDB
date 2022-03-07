@@ -437,15 +437,37 @@ namespace PeterDB {
             getNodeKeys(ixFileHandle, currentNode, keyVec);
             getNodePages<T>(ixFileHandle, currentNode, ridVec);
 
-            for (int i = 0; i < keyVec.size(); i++) {
-                if (keyVec[i] == keyVec[i + 1])
-                    out << "\"" << keyVec[i] << ":[(" << ridVec[i].pageNum << "," << ridVec[i].slotNum << ")]\"";
-                if (i != keyVec.size() - 1) {
-                    out << ",";
+            if(keyVec.size() == 1){
+                out << "\"" << keyVec[0] << ":[";
+                out << "(" << ridVec[0].pageNum << "," << ridVec[0].slotNum << ")";
+                out << "]\"";
+            }else{
+                bool dup = false;
+                for (int i = 0; i < keyVec.size(); i++) {
+                    if (dup || (i != keyVec.size() - 1 && keyVec[i] == keyVec[i + 1])){
+                        if(!dup){
+                            out << "\"" << keyVec[i] << ":[";
+                            dup = true;
+                            out << "(" << ridVec[i].pageNum << "," << ridVec[i].slotNum << ")";
+                        }else{
+                            out << ",(" << ridVec[i].pageNum << "," << ridVec[i].slotNum << ")";
+                        }
+                    }else{
+                        out << "\"" << keyVec[i] << ":[";
+                        out << "(" << ridVec[i].pageNum << "," << ridVec[i].slotNum << ")";
+                    }
+                    if (i != keyVec.size() - 1 && keyVec[i] != keyVec[i + 1]) {
+                        dup = false;
+                        out << "]\"";
+                        out << ",";
+                    }
+                    if(i == keyVec.size() - 1){
+                        out << "]\"";
+                    }
                 }
             }
 
-            out << "]}," << std::endl;
+            out << "]}" << std::endl;
         }
         return RC::ok;
     }
@@ -498,10 +520,39 @@ namespace PeterDB {
             getNodeKeysStr(ixFileHandle, currentNode, keyVec);
             getNodePagesStr(ixFileHandle, currentNode, ridVec);
 
-            for (int i = 0; i < keyVec.size(); i++) {
-                out << "\"" << keyVec[i] << ":[(" << ridVec[i].pageNum << "," << ridVec[i].slotNum << ")]\"";
-                if (i != keyVec.size() - 1) {
-                    out << ",";
+//            for (int i = 0; i < keyVec.size(); i++) {
+//                out << "\"" << keyVec[i] << ":[(" << ridVec[i].pageNum << "," << ridVec[i].slotNum << ")]\"";
+//                if (i != keyVec.size() - 1) {
+//                    out << ",";
+//                }
+//            }
+            if(keyVec.size() == 1){
+                out << "\"" << keyVec[0] << ":[";
+                out << "(" << ridVec[0].pageNum << "," << ridVec[0].slotNum << ")";
+                out << "]\"";
+            }else{
+                bool dup = false;
+                for (int i = 0; i < keyVec.size(); i++) {
+                    if (dup || (i != keyVec.size() - 1 && keyVec[i] == keyVec[i + 1])){
+                        if(!dup){
+                            out << "\"" << keyVec[i] << ":[";
+                            dup = true;
+                            out << "(" << ridVec[i].pageNum << "," << ridVec[i].slotNum << ")";
+                        }else{
+                            out << ",(" << ridVec[i].pageNum << "," << ridVec[i].slotNum << ")";
+                        }
+                    }else{
+                        out << "\"" << keyVec[i] << ":[";
+                        out << "(" << ridVec[i].pageNum << "," << ridVec[i].slotNum << ")";
+                    }
+                    if (i != keyVec.size() - 1 && keyVec[i] != keyVec[i + 1]) {
+                        dup = false;
+                        out << "]\"";
+                        out << ",";
+                    }
+                    if(i == keyVec.size() - 1){
+                        out << "]\"";
+                    }
                 }
             }
 
@@ -518,7 +569,7 @@ namespace PeterDB {
     IX_ScanIterator::~IX_ScanIterator() {
 //        delete (char *) lowKey;
 //        delete (char *) highKey;
-//        delete pageBuffer;
+        delete pageBuffer;
     }
 
     RC IX_ScanIterator::getNextEntry(RID &rid, void *key) {

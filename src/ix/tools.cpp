@@ -520,7 +520,7 @@ namespace PeterDB {
         if (keyNum == keyIndex) {
             keyIndex = 0;
             pageIndex = getNextPage(pageBuffer);
-            if (pageIndex == NULL_PAGE)return RM_EOF;
+            if (pageIndex == NULL_PAGE)return (RC)-1;
             ixFileHandle->fileHandle.readPage(pageIndex, pageBuffer);
             return getRIDviaIndex<T>(rid, key);
         }
@@ -554,7 +554,7 @@ namespace PeterDB {
                 return RC::ok;
             }
         }
-        return RC::RM_EOF;
+        return RC(-1);
     }
 
     RC IX_ScanIterator::getRIDviaIndexStr(RID &rid, void *key) {
@@ -564,7 +564,7 @@ namespace PeterDB {
         if (keyNum == keyIndex) {
             keyIndex = 0;
             pageIndex = getNextPage(pageBuffer);
-            if (pageIndex == NULL_PAGE)return RM_EOF;
+            if (pageIndex == NULL_PAGE)return RC(-1);
             ixFileHandle->fileHandle.readPage(pageIndex, pageBuffer);
             return getRIDviaIndexStr(rid, key);
         }
@@ -610,7 +610,7 @@ namespace PeterDB {
                 return RC::ok;
             }
         }
-        return RC::RM_EOF;
+        return RC(-1);
     }
 
     template<class T>
@@ -804,7 +804,7 @@ namespace PeterDB {
     RC IndexManager::getIndexKey(IXFileHandle &fh, const char *pageBuffer, unsigned short keyIndex, T &key) {
         unsigned short keyNum = getKeyNum(pageBuffer);
         if (keyNum == 0) {
-            return RC::RM_EOF;
+            return RC(-1);
         }
         unsigned path = sizeof(int);
         unsigned lastPath = path;
@@ -834,7 +834,7 @@ namespace PeterDB {
     RC IndexManager::getLeafKey(IXFileHandle &fh, const char *pageBuffer, unsigned short keyIndex, T &key) {
         unsigned short keyNum = getKeyNum(pageBuffer);
         if (keyNum == 0) {
-            return RC::RM_EOF;
+            return RC(-1);
         }
         unsigned path = 0;
         unsigned lastPath = path;
@@ -866,7 +866,7 @@ namespace PeterDB {
     RC IndexManager::formChildEntry(IXFileHandle &fh, unsigned int newPageNum, ChildEntry<T> *newChildEntry,
                                     std::vector<ChildEntry<T> *> &vec) {
         if (newChildEntry == nullptr) {
-            return RC::RM_EOF;
+            return RC(-1);
         }
         char pageBuffer[PAGE_SIZE];
         fh.fileHandle.readPage(newPageNum, pageBuffer);
@@ -903,7 +903,7 @@ namespace PeterDB {
     RC IndexManager::formChildEntryStr(IXFileHandle &fh, unsigned int newPageNum, ChildEntryStr *newChildEntry,
                                        std::vector<ChildEntryStr *> &vec) {
         if (newChildEntry == nullptr) {
-            return RC::RM_EOF;
+            return RC(-1);
         }
         char pageBuffer[PAGE_SIZE];
         fh.fileHandle.readPage(newPageNum, pageBuffer);
@@ -1394,7 +1394,7 @@ namespace PeterDB {
             path += entryLen;
         }
         //not found
-        return RC::RM_EOF;
+        return RC(-1);
     }
 
     RC IndexManager::delLeafEntryStr(IXFileHandle &fh, char *pageBuffer, EntryStr *entry, unsigned int entryLen) {
@@ -1421,7 +1421,7 @@ namespace PeterDB {
             path += len + 2 * sizeof(int) + sizeof(short);
         }
         //not found
-        return RC::RM_EOF;
+        return RC(-1);
     }
 
 };
