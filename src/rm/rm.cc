@@ -7,9 +7,9 @@ namespace PeterDB {
     }
 
     RelationManager::RelationManager() : rbfm(nullptr), tableCatalog("Tables"),
-                                         columnsCatalog("Columns") {
+                                         columnsCatalog("Columns"), idx(nullptr) {
         rbfm = &RecordBasedFileManager::instance();
-
+        idx = &IndexManager::instance();
     }
 
     RelationManager::~RelationManager() = default;
@@ -221,6 +221,10 @@ namespace PeterDB {
             return re;
         }
 
+        std::string indexFile = tableName + ".*";
+        //this may fail because no index was created
+        rbfm->destroyFile(indexFile);
+        
         if (rbfm->destroyFile(tableName) != RC::ok) {
             return RC::REMV_FILE_FAIL;
         }

@@ -60,7 +60,7 @@ namespace PeterDB {
             rm.getAttributes(tableName, attrs);
 
             // Get Attribute Names from RM
-            for (const Attribute &attr : attrs) {
+            for (const Attribute &attr: attrs) {
                 // convert to char *
                 attrNames.push_back(attr.name);
             }
@@ -87,7 +87,7 @@ namespace PeterDB {
             attributes = this->attrs;
 
             // For attribute in std::vector<Attribute>, name it as rel.attr
-            for (Attribute &attribute : attributes) {
+            for (Attribute &attribute: attributes) {
                 attribute.name = tableName + "." + attribute.name;
             }
         };
@@ -144,7 +144,7 @@ namespace PeterDB {
 
 
             // For attribute in std::vector<Attribute>, name it as rel.attr
-            for (Attribute &attribute : attributes) {
+            for (Attribute &attribute: attributes) {
                 attribute.name = tableName + "." + attribute.name;
             }
         };
@@ -156,6 +156,12 @@ namespace PeterDB {
 
     class Filter : public Iterator {
         // Filter operator
+        std::string lhsTableName;
+        std::string lhsAttrName;
+        std::string rhsTableName;
+        std::string rhsAttrName;
+        Condition cond;
+        Iterator *input;
     public:
         Filter(Iterator *input,               // Iterator of input R
                const Condition &condition     // Selection condition

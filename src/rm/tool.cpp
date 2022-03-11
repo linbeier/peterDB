@@ -229,4 +229,18 @@ namespace PeterDB {
         delete[]record;
         return RC::ok;
     }
+
+    RC RelationManager::getOneAttribute(const std::string &tableName, const std::string &attributeName,
+                                        Attribute &attr) {
+        std::vector<Attribute> attrs;
+        getAttributes(tableName, attrs);
+        for (int i = 0; i < attrs.size(); ++i) {
+            if (attrs[i].name == attributeName) {
+                attr.name = attrs[i].name;
+                attr.type = attrs[i].type;
+                attr.length = attrs[i].length;
+            }
+        }
+        return RC::ok;
+    }
 }

@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "src/include/rbfm.h"
+#include "src/include/ix.h"
 
 namespace PeterDB {
 #define RM_EOF (-1)  // end of a scan operator
@@ -27,12 +28,22 @@ namespace PeterDB {
     // RM_IndexScanIterator is an iterator to go through index entries
     class RM_IndexScanIterator {
     public:
-        RM_IndexScanIterator(){};    // Constructor
-        ~RM_IndexScanIterator(){};    // Destructor
+        IX_ScanIterator *idx;
+
+        RM_IndexScanIterator() {
+            idx = nullptr;
+        };    // Constructor
+        ~RM_IndexScanIterator() {
+
+        };    // Destructor
 
         // "key" follows the same format as in IndexManager::insertEntry()
-        RC getNextEntry(RID &rid, void *key){};    // Get next matching entry
-        RC close(){};                              // Terminate index scan
+        RC getNextEntry(RID &rid, void *key) {
+            return idx->getNextEntry(rid, key);
+        };    // Get next matching entry
+        RC close() {
+            return idx->close();
+        };                              // Terminate index scan
     };
 
     // Relation Manager
@@ -42,6 +53,8 @@ namespace PeterDB {
 
         std::string tableCatalog;
         std::string columnsCatalog;
+
+        IndexManager *idx;
 
         static RelationManager &instance();
 
@@ -106,10 +119,18 @@ namespace PeterDB {
 
         RC getTableFile(const std::string &tableName, std::string &fileName);
 
-        // QE IX related
-        RC createIndex(const std::string &tableName, const std::string &attributeName){};
+        RC getOneAttribute(const std::string &tableName, const std::string &attributeName, Attribute &attr);
 
-        RC destroyIndex(const std::string &tableName, const std::string &attributeName){};
+        // QE IX related
+        RC createIndex(const std::string &tableName, const std::string &attributeName) {
+            std::string fileName = tableName + "." + attributeName + ".idx";
+            return idx->createFile(fileName);
+        };
+
+        RC destroyIndex(const std::string &tableName, const std::string &attributeName) {
+            std::string fileName = tableName + "." + attributeName + ".idx";
+            return idx->destroyFile(fileName);
+        };
 
         // indexScan returns an iterator to allow the caller to go through qualified entries in index
         RC indexScan(const std::string &tableName,
@@ -118,7 +139,15 @@ namespace PeterDB {
                      const void *highKey,
                      bool lowKeyInclusive,
                      bool highKeyInclusive,
-                     RM_IndexScanIterator &rm_IndexScanIterator){};
+                     RM_IndexScanIterator &rm_IndexScanIterator) {
+            std::string fileName = tableName + "." + attributeName + ".idx";
+            IXFileHandle fh;
+            idx->openFile(fileName, fh);
+            Attribute attr;
+            getOneAttribute(tableName, attributeName, attr);
+            return idx->scan(fh, attr, lowKey, highKey, lowKeyInclusive, highKeyInclusive,
+                             *rm_IndexScanIterator.idx);
+        };
 
     protected:
         RelationManager();                                                  // Prevent construction

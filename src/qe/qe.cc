@@ -1,7 +1,16 @@
 #include "src/include/qe.h"
+#include "src/qe/tools.cpp"
 
 namespace PeterDB {
     Filter::Filter(Iterator *input, const Condition &condition) {
+        this->input = input;
+        this->cond = condition;
+        lhsTableName = getTableName(cond.lhsAttr);
+        lhsAttrName = getAttrName(cond.lhsAttr);
+        if (cond.bRhsIsAttr) {
+            rhsTableName = getTableName(cond.rhsAttr);
+            rhsAttrName = getAttrName(cond.rhsAttr);
+        }
     }
 
     Filter::~Filter() {
@@ -9,11 +18,20 @@ namespace PeterDB {
     }
 
     RC Filter::getNextTuple(void *data) {
+        char recordBuffer[PAGE_SIZE];
+        std::vector<Attribute> attrs;
+        input->getAttributes(attrs);
+        while (input->getNextTuple(recordBuffer) == RC::ok) {
+
+        }
+
+
         return -1;
     }
 
     RC Filter::getAttributes(std::vector<Attribute> &attrs) const {
-        return -1;
+        input->getAttributes(attrs);
+        return RC::ok;
     }
 
     Project::Project(Iterator *input, const std::vector<std::string> &attrNames) {
