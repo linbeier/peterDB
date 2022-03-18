@@ -170,7 +170,7 @@ namespace PeterDB {
 
         static unsigned short getRecordNum(const char *pageBuffer);
 
-        static bool checkNull(char *nullbuffer, unsigned short num, unsigned short totalbytes);
+        static bool checkNull(const char *nullbuffer, unsigned short num, unsigned short totalbytes);
 
         unsigned short getRecordOffset(const char *data);
 

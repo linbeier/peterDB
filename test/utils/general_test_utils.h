@@ -8,6 +8,7 @@
 #include <sstream>
 #include <fstream>
 #include <random>
+#include <dirent.h>
 
 #include "glog/logging.h"
 #include "gtest/gtest.h"
@@ -100,7 +101,7 @@ namespace PeterDBTesting {
 
     static inline std::string to_lower(std::string s) {
         std::transform(s.begin(), s.end(), s.begin(),
-                       [](unsigned char c){ return std::tolower(c); });
+                       [](unsigned char c) { return std::tolower(c); });
         return s;
     }
 
@@ -164,9 +165,8 @@ namespace PeterDBTesting {
             ASSERT_GE(targetMap.size(), expectedMap.size()) << "Fields count should be greater or equal to expected.";
         }
 
-        for (const auto & expectedIter : expectedMap)
-        {
-            auto expectedKey =  expectedIter.first;
+        for (const auto &expectedIter: expectedMap) {
+            auto expectedKey = expectedIter.first;
             auto expectedValue = expectedIter.second;
 
             ASSERT_TRUE((targetMap.contains(expectedKey)))
@@ -236,6 +236,22 @@ namespace PeterDBTesting {
         return result;
     }
 
+    std::vector<std::string> glob(const std::string &suffix) {
+        std::vector<std::string> files;
+        DIR *dpdf;
+        struct dirent *epdf;
+
+        dpdf = opendir("./");
+        if (dpdf != nullptr) {
+            while ((epdf = readdir(dpdf))) {
+                if (strstr(epdf->d_name, suffix.c_str())) {
+                    files.emplace_back(epdf->d_name);
+                }
+            }
+        }
+        closedir(dpdf);
+        return files;
+    }
 } // namespace PeterDBTesting
 
 

@@ -243,4 +243,81 @@ namespace PeterDB {
         }
         return RC::ok;
     }
+
+    RC RelationManager::formIndexAttr(std::vector<Attribute> &descriptor) {
+        Attribute attr{"tableName", TypeVarChar, 50};
+        descriptor.push_back(attr);
+        attr = {"indexAttr", TypeVarChar, 50};
+        descriptor.push_back(attr);
+        attr = {"indexName", TypeVarChar, 50};
+        descriptor.push_back(attr);
+        attr = {"fileName", TypeVarChar, 50};
+        descriptor.push_back(attr);
+        return RC::ok;
+    }
+
+    RC
+    RelationManager::formData(const std::vector<Attribute> &descriptor, std::vector<const void *> &values,
+                              char *&data) {
+        data = new char[PAGE_SIZE];
+        unsigned dataFieldNum = descriptor.size();
+        //field num convert to null indicator
+        std::vector<char> nullIndic(dataFieldNum / 8 + (dataFieldNum % 8 == 0 ? 0 : 1), 0);
+        //pointer of current record
+        unsigned short dataPointer = nullIndic.size();
+
+        for (int i = 0; i < values.size(); i++) {
+            if (values[i] == nullptr) {
+                //null field
+                nullIndic[i / 8] = nullIndic[i / 8] | (1 << (7 - (i % 8)));
+            } else {
+                if (descriptor[i].type == TypeVarChar) {
+                    //value type : const char*
+                    int len = 0;
+                    memcpy(&len, values[i], sizeof(int));
+                    memcpy(data + dataPointer, values[i], sizeof(int) + len);
+                    dataPointer += len + sizeof(int);
+                } else {
+                    memcpy(data + dataPointer, values[i], sizeof(int));
+                    dataPointer += sizeof(int);
+                }
+            }
+        }
+
+        for (int i = 0; i < nullIndic.size(); ++i) {
+            memcpy(data + i, &nullIndic[i], sizeof(char));
+        }
+        return RC::ok;
+    }
+
+    RC RelationManager::formVector(const std::vector<Attribute> &descriptor, std::vector<void *> &values,
+                                   const char *data) {
+        unsigned dataFieldNum = descriptor.size();
+        //field num convert to null indicator
+        std::vector<char> nullIndic(dataFieldNum / 8 + (dataFieldNum % 8 == 0 ? 0 : 1), 0);
+        //pointer of current record
+        unsigned short dataPointer = nullIndic.size();
+
+        for (int i = 0; i < descriptor.size(); i++) {
+            bool isNull = rbfm->checkNull(data, i, 0);
+            if (isNull) {
+                values.push_back(nullptr);
+            } else {
+                if (descriptor[i].type == TypeVarChar) {
+                    int len = 0;
+                    memcpy(&len, data + dataPointer, sizeof(int));
+                    dataPointer += sizeof(int);
+                    std::string str(data + dataPointer, len);
+                    values.push_back(&str);
+                    dataPointer += len;
+                } else {
+                    char *val = new char[sizeof(int)];
+                    memcpy(val, data + dataPointer, sizeof(int));
+                    values.push_back(val);
+                    dataPointer += sizeof(int);
+                }
+            }
+        }
+        return RC::ok;
+    }
 }

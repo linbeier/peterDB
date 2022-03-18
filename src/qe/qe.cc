@@ -26,7 +26,7 @@ namespace PeterDB {
         }
 
 
-        return -1;
+        return (RC) -1;
     }
 
     RC Filter::getAttributes(std::vector<Attribute> &attrs) const {
@@ -43,11 +43,11 @@ namespace PeterDB {
     }
 
     RC Project::getNextTuple(void *data) {
-        return -1;
+        return (RC) -1;
     }
 
     RC Project::getAttributes(std::vector<Attribute> &attrs) const {
-        return -1;
+        return (RC) -1;
     }
 
     BNLJoin::BNLJoin(Iterator *leftIn, TableScan *rightIn, const Condition &condition, const unsigned int numPages) {
@@ -59,11 +59,11 @@ namespace PeterDB {
     }
 
     RC BNLJoin::getNextTuple(void *data) {
-        return -1;
+        return (RC) -1;
     }
 
     RC BNLJoin::getAttributes(std::vector<Attribute> &attrs) const {
-        return -1;
+        return (RC) -1;
     }
 
     INLJoin::INLJoin(Iterator *leftIn, IndexScan *rightIn, const Condition &condition) {
@@ -75,11 +75,11 @@ namespace PeterDB {
     }
 
     RC INLJoin::getNextTuple(void *data) {
-        return -1;
+        return (RC) -1;
     }
 
     RC INLJoin::getAttributes(std::vector<Attribute> &attrs) const {
-        return -1;
+        return (RC) -1;
     }
 
     GHJoin::GHJoin(Iterator *leftIn, Iterator *rightIn, const Condition &condition, const unsigned int numPartitions) {
@@ -91,11 +91,11 @@ namespace PeterDB {
     }
 
     RC GHJoin::getNextTuple(void *data) {
-        return -1;
+        return (RC) -1;
     }
 
     RC GHJoin::getAttributes(std::vector<Attribute> &attrs) const {
-        return -1;
+        return (RC) -1;
     }
 
     Aggregate::Aggregate(Iterator *input, const Attribute &aggAttr, AggregateOp op) {
@@ -111,10 +111,10 @@ namespace PeterDB {
     }
 
     RC Aggregate::getNextTuple(void *data) {
-        return -1;
+        return (RC) -1;
     }
 
     RC Aggregate::getAttributes(std::vector<Attribute> &attrs) const {
-        return -1;
+        return (RC) -1;
     }
 } // namespace PeterDB

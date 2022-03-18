@@ -6,6 +6,7 @@
 
 #include "src/include/rbfm.h"
 #include "src/include/ix.h"
+#include "src/include/pfm.h"
 
 namespace PeterDB {
 #define RM_EOF (-1)  // end of a scan operator
@@ -50,9 +51,11 @@ namespace PeterDB {
     class RelationManager {
     public:
         RecordBasedFileManager *rbfm;
+        PagedFileManager *pfm;
 
         std::string tableCatalog;
         std::string columnsCatalog;
+        std::string indexTable;
 
         IndexManager *idx;
 
@@ -103,6 +106,8 @@ namespace PeterDB {
 
         RC formColumnsAttr(std::vector<Attribute> &descriptor);
 
+        RC formIndexAttr(std::vector<Attribute> &descriptor);
+
         RC constructTableRecord(std::vector<Attribute> &descriptor, unsigned *table_id, const char *table_name,
                                 const char *file_name, char *data, unsigned &dataLen);
 
@@ -121,15 +126,66 @@ namespace PeterDB {
 
         RC getOneAttribute(const std::string &tableName, const std::string &attributeName, Attribute &attr);
 
+        RC formData(const std::vector<Attribute> &descriptor, std::vector<const void *> &values, char *&data);
+
+        RC formVector(const std::vector<Attribute> &descriptor, std::vector<void *> &values, const char *data);
+
+        char *formStr(const std::string &str) {
+            char *record = new char[str.length() + sizeof(int)];
+            int len = str.length();
+            memcpy(record, &len, sizeof(int));
+            memcpy(record + sizeof(int), str.c_str(), len);
+            return record;
+        };
+
         // QE IX related
         RC createIndex(const std::string &tableName, const std::string &attributeName) {
+            if (!pfm->is_file_exist(indexTable.c_str())) {
+                std::vector<Attribute> idxAttrs;
+                formIndexAttr(idxAttrs);
+                createTable(indexTable, idxAttrs);
+            }
+            //form attrs
+            std::vector<Attribute> attrs;
+            formIndexAttr(attrs);
+            std::string indexName = tableName + "." + attributeName;
             std::string fileName = tableName + "." + attributeName + ".idx";
+
+            std::vector<const void *> values = {formStr(tableName), formStr(attributeName), formStr(indexName),
+                                                formStr(fileName)};
+            //form record data
+            char *data = nullptr;
+            this->formData(attrs, values, data);
+            //insert tuple
+            RID rid;
+            this->insertTuple(indexTable, data, rid);
+            delete[]data;
             return idx->createFile(fileName);
         };
 
         RC destroyIndex(const std::string &tableName, const std::string &attributeName) {
+            if (!pfm->is_file_exist(indexTable.c_str())) {
+                return (RC) -1;
+            }
+            //delete real file
             std::string fileName = tableName + "." + attributeName + ".idx";
-            return idx->destroyFile(fileName);
+            idx->destroyFile(fileName);
+            //delete tuple
+            std::string indexName = tableName + "." + attributeName;
+            int strLen = indexName.length();
+            char *strRecord = new char[strLen + 4];
+            formRecordValue(indexName.c_str(), strRecord, TypeVarChar, strLen);
+            RM_ScanIterator iter;
+            this->scan(this->indexTable, "indexName", EQ_OP, strRecord, {"indexName"}, iter);
+            RID delRid;
+            char *tempData = new char[PAGE_SIZE];
+            while (iter.getNextTuple(delRid, tempData) == RC::ok) {
+                this->deleteTuple(this->indexTable, delRid);
+            }
+
+            delete[]strRecord;
+            delete[]tempData;
+            return RC::ok;
         };
 
         // indexScan returns an iterator to allow the caller to go through qualified entries in index

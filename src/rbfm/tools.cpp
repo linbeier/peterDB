@@ -47,7 +47,7 @@ namespace PeterDB {
     }
 
     //bitnum start from 0
-    bool RecordBasedFileManager::checkNull(char *nullbuffer, unsigned short bitnum, unsigned short totalbit) {
+    bool RecordBasedFileManager::checkNull(const char *nullbuffer, unsigned short bitnum, unsigned short totalbit) {
 
         char buf;
         memcpy(&buf, nullbuffer + bitnum / 8, sizeof(char));

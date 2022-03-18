@@ -7,9 +7,11 @@ namespace PeterDB {
     }
 
     RelationManager::RelationManager() : rbfm(nullptr), tableCatalog("Tables"),
-                                         columnsCatalog("Columns"), idx(nullptr) {
+                                         columnsCatalog("Columns"), idx(nullptr), pfm(nullptr),
+                                         indexTable("index_table") {
         rbfm = &RecordBasedFileManager::instance();
         idx = &IndexManager::instance();
+        pfm = &PagedFileManager::instance();
     }
 
     RelationManager::~RelationManager() = default;
@@ -144,7 +146,8 @@ namespace PeterDB {
 
     RC RelationManager::deleteCatalog() {
 
-        if (rbfm->destroyFile(tableCatalog) != RC::ok || rbfm->destroyFile(columnsCatalog) != RC::ok) {
+        if (rbfm->destroyFile(tableCatalog) != RC::ok || rbfm->destroyFile(columnsCatalog) != RC::ok ||
+            rbfm->destroyFile(indexTable) != RC::ok) {
             return RC::REMV_FILE_FAIL;
         }
 
@@ -220,11 +223,24 @@ namespace PeterDB {
         if (re != RC::ok) {
             return re;
         }
+        RM_ScanIterator rm_iter;
+        char *tableNameBuf = new char[tableName.length() + sizeof(int)];
+        formRecordValue(tableName.c_str(), tableNameBuf, TypeVarChar, tableName.length());
+        this->scan(this->indexTable, "tableName", EQ_OP, tableNameBuf, {"indexAttr"}, rm_iter);
+        RID tempRid;
+        char *data = new char[PAGE_SIZE];
+        std::vector<std::string> attrs;
+        while (rm_iter.getNextTuple(tempRid, data) == RC::ok) {
+            //ignore null indicator
+            int len = 0;
+            memcpy(&len, data + 1, sizeof(int));
+            std::string indexAttr(data + 5, len);
+            attrs.push_back(indexAttr);
+        }
+        for (const auto &attr: attrs) {
+            this->destroyIndex(tableName, attr);
+        }
 
-        std::string indexFile = tableName + ".*";
-        //this may fail because no index was created
-        rbfm->destroyFile(indexFile);
-        
         if (rbfm->destroyFile(tableName) != RC::ok) {
             return RC::REMV_FILE_FAIL;
         }
