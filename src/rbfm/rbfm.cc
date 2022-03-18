@@ -547,7 +547,7 @@ namespace PeterDB {
     RC RBFM_ScanIterator::getNextRecord(RID &rid, void *data) {
         if (closed) return static_cast<RC>RBFM_EOF;
         //check if it meets the end
-        if (currentRid.pageNum > fd.totalPage) {
+        if (currentRid.pageNum >= fd.totalPage) {
             return static_cast<RC>RBFM_EOF;
         }
         char *pageBuf = new char[PAGE_SIZE];

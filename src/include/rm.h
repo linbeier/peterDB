@@ -156,11 +156,24 @@ namespace PeterDB {
             //form record data
             char *data = nullptr;
             this->formData(attrs, values, data);
-            //insert tuple
+            //insert tuple to indexTable Catalog
             RID rid;
             this->insertTuple(indexTable, data, rid);
             delete[]data;
-            return idx->createFile(fileName);
+            idx->createFile(fileName);
+            //insert index content
+            IXFileHandle fh;
+            idx->openFile(fileName, fh);
+            RM_ScanIterator rm_iter;
+            scan(tableName, "", NO_OP, NULL, {attributeName}, rm_iter);
+            char *recordData = new char[PAGE_SIZE];
+            while (rm_iter.getNextTuple(rid, recordData) == RC::ok) {
+                Attribute attr;
+                getOneAttribute(tableName, attributeName, attr);
+                idx->insertEntry(fh, attr, recordData, rid);
+            }
+            idx->closeFile(fh);
+            return RC::ok;
         };
 
         RC destroyIndex(const std::string &tableName, const std::string &attributeName) {
