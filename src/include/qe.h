@@ -164,7 +164,6 @@ namespace PeterDB {
 
         Iterator *input;
         RelationManager &rm;
-//        RM_ScanIterator rightIter;
         IndexManager &idx;
     public:
         Filter(Iterator *input,               // Iterator of input R
@@ -184,6 +183,8 @@ namespace PeterDB {
                                   unsigned &rhsLen);
 
         void extract_data(AttrType type, const char *data, char *&record, unsigned &len);
+
+        void rhs_extract_data(AttrType type, const char *data, char *&record, unsigned &len);
     };
 
     class Project : public Iterator {

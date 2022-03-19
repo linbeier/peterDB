@@ -22,13 +22,15 @@ namespace PeterDB {
     RC Filter::getNextTuple(void *data) {
         char recordBuffer[PAGE_SIZE];
         std::vector<Attribute> attrs;
-        input->getAttributes(attrs);
+
         while (input->getNextTuple(recordBuffer) == RC::ok) {
-//            std::vector<void *> vals;
-//            this->rm.formVector(attrs, vals, recordBuffer);
+            std::vector<void *> vals;
+            this->rm.formVector(attrs, vals, recordBuffer);
             unsigned dataLen = 0;
             if (check_condition(recordBuffer, dataLen)) {
-                memcpy((char *) data, recordBuffer, dataLen);
+                char nullp = '\0';
+                memcpy((char *) data, &nullp, sizeof(char));
+                memcpy((char *) data + 1, recordBuffer, dataLen);
                 return RC::ok;
             }
         }

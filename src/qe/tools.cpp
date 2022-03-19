@@ -22,13 +22,11 @@ namespace PeterDB {
     }
 
     bool Filter::check_condition(void *data, unsigned &dataLen) {
-//        std::vector<void *> lval;
-//        Attribute lattr;
-//        rm.getOneAttribute(lhsTableName, lhsAttrName, lattr);
-//        if (!cond.bRhsIsAttr) {
-//            rm.formVector({lattr}, lval, static_cast<const char *>(data));
+
         unsigned rhsLen = 0;
-        return check_operator_value(static_cast<char *>(data), cond.rhsValue.type, dataLen,
+        unsigned lhsLen = 0;
+
+        return check_operator_value(static_cast<char *>(data), cond.rhsValue.type, lhsLen,
                                     static_cast<char *>(cond.rhsValue.data), cond.rhsValue.type, rhsLen);
 
     }
@@ -45,20 +43,33 @@ namespace PeterDB {
         }
     }
 
+    void Filter::rhs_extract_data(AttrType type, const char *data, char *&record, unsigned &len) {
+        if (type == TypeVarChar) {
+            memcpy(&len, data , sizeof(int));
+            record = new char[len];
+            memcpy(record, data + 4, len);
+        } else {
+            len = sizeof(int);
+            record = new char[len];
+            memcpy(record, data, sizeof(int));
+        }
+    }
+
+    //lhs: null + data;  rhs: only data
     bool
     Filter::check_operator_value(char *lhsData, AttrType lhsType, unsigned &lhsLen, char *rhsData, AttrType rhsType,
                                  unsigned &rhsLen) {
-        char lhsNullp = '\0', rhsNullp = '\0';
+        char lhsNullp = '\0';
         memcpy(&lhsNullp, lhsData, sizeof(char));
-        memcpy(&rhsNullp, rhsData, sizeof(char));
+//        memcpy(&rhsNullp, rhsData, sizeof(char));
         lhsLen = 0;
         rhsLen = 0;
         bool isNull = false;
         bool result = false;
 
         //without null pointer
-        char *lhsVal;
-        char *rhsVal;
+        char *lhsVal = nullptr;
+        char *rhsVal = nullptr;
 
         if (lhsNullp != '\0') {
             isNull = true;
@@ -66,25 +77,18 @@ namespace PeterDB {
             lhsVal = nullptr;
         } else {
             extract_data(lhsType, lhsData, lhsVal, lhsLen);
-//            if (cond.rhsValue.type == TypeVarChar) {
-//                memcpy(&len, lhsData + recordP, sizeof(int));
-//                recordP += sizeof(int);
-//                lhsVal = new char[len];
-//                memcpy(lhsVal, lhsData + recordP, len);
-//            } else {
-//                len = sizeof(int);
-//                lhsVal = new char[len];
-//                memcpy(lhsVal, lhsData + recordP, sizeof(int));
-//            }
         }
 
-        if (rhsNullp != '\0') {
-            isNull = true;
-            rhsLen = 1;
-            rhsVal = nullptr;
-        } else {
-            extract_data(rhsType, rhsData, rhsVal, rhsLen);
-        }
+        rhs_extract_data(rhsType, rhsData, rhsVal, rhsLen);
+
+
+//        if (rhsNullp != '\0') {
+//            isNull = true;
+//            rhsLen = 1;
+//            rhsVal = nullptr;
+//        } else {
+//        extract_data(rhsType, rhsData, rhsVal, rhsLen);
+//        }
 //
 //        if (cond.rhsValue.data == nullptr) {
 //            isNull = true;
