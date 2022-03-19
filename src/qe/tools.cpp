@@ -17,8 +17,24 @@ namespace PeterDB {
         return AttrName;
     }
 
-    unsigned getRecordLen(char *data) {
+    unsigned Filter::getRecordLen(std::vector<Attribute> &attrs, char *data) {
+        unsigned short fieldNum = attrs.size();
+        unsigned short nullByte = attrs.size() / 8 + (attrs.size() % 8 == 0 ? 0 : 1);
+        unsigned dataPointer = nullByte;
 
+        for (int i = 0; i < attrs.size(); i++) {
+            if (rm.rbfm->checkNull(data, i, 0)) {
+                continue;
+            }
+            if (attrs[i].type == TypeVarChar) {
+                int len = 0;
+                memcpy(&len, data + dataPointer, sizeof(int));
+                dataPointer += len + sizeof(int);
+            } else {
+                dataPointer += sizeof(int);
+            }
+        }
+        return dataPointer;
     }
 
     bool Filter::check_condition(void *data, unsigned &dataLen) {
@@ -45,7 +61,7 @@ namespace PeterDB {
 
     void Filter::rhs_extract_data(AttrType type, const char *data, char *&record, unsigned &len) {
         if (type == TypeVarChar) {
-            memcpy(&len, data , sizeof(int));
+            memcpy(&len, data, sizeof(int));
             record = new char[len];
             memcpy(record, data + 4, len);
         } else {

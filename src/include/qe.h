@@ -185,6 +185,8 @@ namespace PeterDB {
         void extract_data(AttrType type, const char *data, char *&record, unsigned &len);
 
         void rhs_extract_data(AttrType type, const char *data, char *&record, unsigned &len);
+
+        unsigned getRecordLen(std::vector<Attribute> &attrs, char *data);
     };
 
     class Project : public Iterator {
