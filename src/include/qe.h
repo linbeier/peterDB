@@ -161,7 +161,11 @@ namespace PeterDB {
         std::string rhsTableName;
         std::string rhsAttrName;
         Condition cond;
+
         Iterator *input;
+        RelationManager &rm;
+//        RM_ScanIterator rightIter;
+        IndexManager &idx;
     public:
         Filter(Iterator *input,               // Iterator of input R
                const Condition &condition     // Selection condition
@@ -173,6 +177,13 @@ namespace PeterDB {
 
         // For attribute in std::vector<Attribute>, name it as rel.attr
         RC getAttributes(std::vector<Attribute> &attrs) const override;
+
+        bool check_condition(void *data, unsigned &dataLen);
+
+        bool check_operator_value(char *lhsData, AttrType lhsType, unsigned &lhsLen, char *rhsData, AttrType rhsType,
+                                  unsigned &rhsLen);
+
+        void extract_data(AttrType type, const char *data, char *&record, unsigned &len);
     };
 
     class Project : public Iterator {

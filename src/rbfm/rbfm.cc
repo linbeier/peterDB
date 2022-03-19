@@ -526,19 +526,16 @@ namespace PeterDB {
         if (value == nullptr) {
             rbfm_ScanIterator.compData = nullptr;
             rbfm_ScanIterator.valLen = 0;
-
         } else if (compType == TypeReal || compType == TypeInt) {
             rbfm_ScanIterator.valLen = sizeof(int);
             rbfm_ScanIterator.compData = new char[sizeof(int)];
             memcpy(rbfm_ScanIterator.compData, value, sizeof(int));
-
         } else if (compType == TypeVarChar) {
             unsigned len = 0;
             memcpy(&len, (char *) value, sizeof(int));
             rbfm_ScanIterator.valLen = len;
             rbfm_ScanIterator.compData = new char[len];
             memcpy(rbfm_ScanIterator.compData, (char *) value + sizeof(int), len);
-
         }
 
         return RC::ok;

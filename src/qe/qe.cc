@@ -2,15 +2,17 @@
 #include "src/qe/tools.cpp"
 
 namespace PeterDB {
-    Filter::Filter(Iterator *input, const Condition &condition) {
+    Filter::Filter(Iterator *input, const Condition &condition) : rm(RelationManager::instance()),
+                                                                  idx(IndexManager::instance()) {
         this->input = input;
         this->cond = condition;
         lhsTableName = getTableName(cond.lhsAttr);
         lhsAttrName = getAttrName(cond.lhsAttr);
-        if (cond.bRhsIsAttr) {
-            rhsTableName = getTableName(cond.rhsAttr);
-            rhsAttrName = getAttrName(cond.rhsAttr);
-        }
+//        if (cond.bRhsIsAttr) {
+//            rhsTableName = getTableName(cond.rhsAttr);
+//            rhsAttrName = getAttrName(cond.rhsAttr);
+//            rm.scan(rhsTableName, rhsAttrName, NO_OP, NULL, {rhsAttrName}, rightIter);
+//        }
     }
 
     Filter::~Filter() {
@@ -22,9 +24,14 @@ namespace PeterDB {
         std::vector<Attribute> attrs;
         input->getAttributes(attrs);
         while (input->getNextTuple(recordBuffer) == RC::ok) {
-
+//            std::vector<void *> vals;
+//            this->rm.formVector(attrs, vals, recordBuffer);
+            unsigned dataLen = 0;
+            if (check_condition(recordBuffer, dataLen)) {
+                memcpy((char *) data, recordBuffer, dataLen);
+                return RC::ok;
+            }
         }
-
 
         return (RC) -1;
     }
