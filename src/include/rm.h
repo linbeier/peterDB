@@ -164,6 +164,7 @@ namespace PeterDB {
             this->insertTuple(indexTable, data, rid);
             delete[](char *) data;
             idx->createFile(fileName);
+            hasIndex = true;
             //insert index content
             IXFileHandle fh;
             idx->openFile(fileName, fh);
