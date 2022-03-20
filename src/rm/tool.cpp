@@ -306,10 +306,11 @@ namespace PeterDB {
                 if (descriptor[i].type == TypeVarChar) {
                     int len = 0;
                     memcpy(&len, data + dataPointer, sizeof(int));
-                    dataPointer += sizeof(int);
-                    std::string str(data + dataPointer, len);
-                    values.push_back(&str);
-                    dataPointer += len;
+//                    dataPointer += sizeof(int);
+                    char *val = new char[len + sizeof(int)];
+                    memcpy(val, data + dataPointer, len + sizeof(int));
+                    values.push_back(val);
+                    dataPointer += len + sizeof(int);
                 } else {
                     char *val = new char[sizeof(int)];
                     memcpy(val, data + dataPointer, sizeof(int));
