@@ -22,14 +22,14 @@ namespace PeterDB {
     RC Filter::getNextTuple(void *data) {
         char recordBuffer[PAGE_SIZE];
         std::vector<Attribute> attrs;
-        rm.getAttributes(lhsTableName, attrs);
+        input->getAttributes(attrs);
 
         while (input->getNextTuple(recordBuffer) == RC::ok) {
             std::vector<void *> vals;
             this->rm.formVector(attrs, vals, recordBuffer);
             int count = 0;
             for (int i = 0; i < attrs.size(); i++) {
-                if (attrs[i].name == lhsAttrName) {
+                if (attrs[i].name == cond.lhsAttr) {
                     count = i;
                     break;
                 }
@@ -57,12 +57,12 @@ namespace PeterDB {
     Project::Project(Iterator *input, const std::vector<std::string> &attrNames) : rm(RelationManager::instance()) {
 
         input->fetchTableName(tableName);
-        rm.getAttributes(tableName, attrAll);
+        input->getAttributes(attrAll);
         this->input = input;
 
         for (int i = 0; i < attrNames.size(); i++) {
             for (int j = 0; j < attrAll.size(); j++) {
-                if (tableName + "." + attrAll[j].name == attrNames[i]) {
+                if (attrAll[j].name == attrNames[i]) {
                     attrs.push_back(attrAll[j]);
                     break;
                 }
@@ -100,9 +100,9 @@ namespace PeterDB {
 
     RC Project::getAttributes(std::vector<Attribute> &attrs) const {
         attrs = this->attrs;
-        for (int i = 0; i < attrs.size(); ++i) {
-            attrs[i].name = tableName + "." + attrs[i].name;
-        }
+//        for (int i = 0; i < attrs.size(); ++i) {
+//            attrs[i].name = tableName + "." + attrs[i].name;
+//        }
         return RC::ok;
     }
 
