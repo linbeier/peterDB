@@ -259,7 +259,7 @@ namespace PeterDB {
     RC
     RelationManager::formData(const std::vector<Attribute> &descriptor, std::vector<const void *> &values,
                               void *&data) {
-        data = new char[PAGE_SIZE];
+//        data = new char[PAGE_SIZE];
         unsigned dataFieldNum = descriptor.size();
         //field num convert to null indicator
         std::vector<char> nullIndic(dataFieldNum / 8 + (dataFieldNum % 8 == 0 ? 0 : 1), 0);

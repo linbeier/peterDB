@@ -155,7 +155,7 @@ namespace PeterDB {
             std::vector<const void *> values = {formStr(tableName), formStr(attributeName), formStr(indexName),
                                                 formStr(fileName)};
             //form record data
-            void *data = nullptr;
+            void *data = new char[PAGE_SIZE];
             this->formData(attrs, values, data);
             //insert tuple to indexTable Catalog
             RID rid;

@@ -35,7 +35,7 @@ namespace PeterDB {
                 }
             }
             unsigned dataLen = 0;
-            void *oneEntry = nullptr;
+            void *oneEntry = new char[PAGE_SIZE];
             std::vector<Attribute> oneAttr = {attrs[count]};
             std::vector<const void *> oneData = {vals[count]};
             rm.formData(oneAttr, oneData, oneEntry);
