@@ -258,7 +258,7 @@ namespace PeterDB {
 
     RC
     RelationManager::formData(const std::vector<Attribute> &descriptor, std::vector<const void *> &values,
-                              char *&data) {
+                              void *&data) {
         data = new char[PAGE_SIZE];
         unsigned dataFieldNum = descriptor.size();
         //field num convert to null indicator
@@ -275,17 +275,17 @@ namespace PeterDB {
                     //value type : const char*
                     int len = 0;
                     memcpy(&len, values[i], sizeof(int));
-                    memcpy(data + dataPointer, values[i], sizeof(int) + len);
+                    memcpy((char *) data + dataPointer, values[i], sizeof(int) + len);
                     dataPointer += len + sizeof(int);
                 } else {
-                    memcpy(data + dataPointer, values[i], sizeof(int));
+                    memcpy((char *) data + dataPointer, values[i], sizeof(int));
                     dataPointer += sizeof(int);
                 }
             }
         }
 
         for (int i = 0; i < nullIndic.size(); ++i) {
-            memcpy(data + i, &nullIndic[i], sizeof(char));
+            memcpy((char *) data + i, &nullIndic[i], sizeof(char));
         }
         return RC::ok;
     }

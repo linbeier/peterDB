@@ -127,7 +127,7 @@ namespace PeterDB {
 
         RC getOneAttribute(const std::string &tableName, const std::string &attributeName, Attribute &attr);
 
-        RC formData(const std::vector<Attribute> &descriptor, std::vector<const void *> &values, char *&data);
+        RC formData(const std::vector<Attribute> &descriptor, std::vector<const void *> &values, void *&data);
 
         RC formVector(const std::vector<Attribute> &descriptor, std::vector<void *> &values, const char *data);
 
@@ -155,12 +155,12 @@ namespace PeterDB {
             std::vector<const void *> values = {formStr(tableName), formStr(attributeName), formStr(indexName),
                                                 formStr(fileName)};
             //form record data
-            char *data = nullptr;
+            void *data = nullptr;
             this->formData(attrs, values, data);
             //insert tuple to indexTable Catalog
             RID rid;
             this->insertTuple(indexTable, data, rid);
-            delete[]data;
+            delete[](char *) data;
             idx->createFile(fileName);
             //insert index content
             IXFileHandle fh;

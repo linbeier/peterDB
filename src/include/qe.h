@@ -39,6 +39,8 @@ namespace PeterDB {
 
         virtual RC getAttributes(std::vector<Attribute> &attrs) const = 0;
 
+        virtual RC getTableName(std::string &tableName) {};
+
         virtual ~Iterator() = default;
     };
 
@@ -91,6 +93,11 @@ namespace PeterDB {
                 attribute.name = tableName + "." + attribute.name;
             }
         };
+
+        RC getTableName(std::string &tableName) override {
+            tableName = this->tableName;
+            return RC::ok;
+        }
 
         ~TableScan() override {
             iter.close();
@@ -149,6 +156,11 @@ namespace PeterDB {
             }
         };
 
+        RC getTableName(std::string &tableName) override {
+            tableName = this->tableName;
+            return RC::ok;
+        }
+
         ~IndexScan() override {
             iter.close();
         };
@@ -191,6 +203,11 @@ namespace PeterDB {
 
     class Project : public Iterator {
         // Projection operator
+        RelationManager &rm;
+        std::vector<Attribute> attrs;
+        std::vector<Attribute> attrAll;
+        std::string tableName;
+        Iterator *input;
     public:
         Project(Iterator *input,                                // Iterator of input R
                 const std::vector<std::string> &attrNames);     // std::vector containing attribute names

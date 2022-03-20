@@ -35,7 +35,7 @@ namespace PeterDB {
                 }
             }
             unsigned dataLen = 0;
-            char *oneEntry = nullptr;
+            void *oneEntry = nullptr;
             std::vector<Attribute> oneAttr = {attrs[count]};
             std::vector<const void *> oneData = {vals[count]};
             rm.formData(oneAttr, oneData, oneEntry);
@@ -54,8 +54,19 @@ namespace PeterDB {
         return RC::ok;
     }
 
-    Project::Project(Iterator *input, const std::vector<std::string> &attrNames) {
+    Project::Project(Iterator *input, const std::vector<std::string> &attrNames) : rm(RelationManager::instance()) {
 
+        input->getTableName(tableName);
+        rm.getAttributes(tableName, attrAll);
+
+        for (int i = 0; i < attrAll.size(); i++) {
+            for (int j = 0; j < attrNames.size(); j++) {
+                if (attrAll[i].name == attrNames[j]) {
+                    attrs.push_back(attrAll[i]);
+                    break;
+                }
+            }
+        }
     }
 
     Project::~Project() {
@@ -63,11 +74,35 @@ namespace PeterDB {
     }
 
     RC Project::getNextTuple(void *data) {
-        return (RC) -1;
+        std::vector<void *> vals;
+        char recordBuffer[PAGE_SIZE];
+
+        RC re = input->getNextTuple(recordBuffer);
+        if (re != RC::ok) {
+            return re;
+        }
+        rm.formVector(attrAll, vals, recordBuffer);
+
+        std::vector<const void *> dealedVals;
+        for (int i = 0; i < attrAll.size(); ++i) {
+            for (int j = 0; j < attrs.size(); ++j) {
+                if (attrAll[i].name == attrs[j].name) {
+                    dealedVals.push_back(vals[i]);
+                    break;
+                }
+            }
+        }
+
+        rm.formData(attrs, dealedVals, data);
+        return RC::ok;
     }
 
     RC Project::getAttributes(std::vector<Attribute> &attrs) const {
-        return (RC) -1;
+        attrs = this->attrs;
+        for (int i = 0; i < attrs.size(); ++i) {
+            attrs[i].name = tableName + "." + attrs[i].name;
+        }
+        return RC::ok;
     }
 
     BNLJoin::BNLJoin(Iterator *leftIn, TableScan *rightIn, const Condition &condition, const unsigned int numPages) {
