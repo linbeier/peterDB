@@ -60,10 +60,10 @@ namespace PeterDB {
         rm.getAttributes(tableName, attrAll);
         this->input = input;
 
-        for (int i = 0; i < attrAll.size(); i++) {
-            for (int j = 0; j < attrNames.size(); j++) {
-                if (tableName + "." + attrAll[i].name == attrNames[j]) {
-                    attrs.push_back(attrAll[i]);
+        for (int i = 0; i < attrNames.size(); i++) {
+            for (int j = 0; j < attrAll.size(); j++) {
+                if (tableName + "." + attrAll[j].name == attrNames[i]) {
+                    attrs.push_back(attrAll[j]);
                     break;
                 }
             }
@@ -85,10 +85,10 @@ namespace PeterDB {
         rm.formVector(attrAll, vals, recordBuffer);
 
         std::vector<const void *> dealedVals;
-        for (int i = 0; i < attrAll.size(); ++i) {
-            for (int j = 0; j < attrs.size(); ++j) {
-                if (attrAll[i].name == attrs[j].name) {
-                    dealedVals.push_back(vals[i]);
+        for (int i = 0; i < attrs.size(); ++i) {
+            for (int j = 0; j < attrAll.size(); ++j) {
+                if (attrAll[j].name == attrs[i].name) {
+                    dealedVals.push_back(vals[j]);
                     break;
                 }
             }

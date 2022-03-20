@@ -57,6 +57,7 @@ namespace PeterDB {
         std::string tableCatalog;
         std::string columnsCatalog;
         std::string indexTable;
+        bool hasIndex;
 
         IndexManager *idx;
 

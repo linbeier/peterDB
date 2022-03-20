@@ -8,7 +8,7 @@ namespace PeterDB {
 
     RelationManager::RelationManager() : rbfm(nullptr), tableCatalog("Tables"),
                                          columnsCatalog("Columns"), idx(nullptr), pfm(nullptr),
-                                         indexTable("index_table") {
+                                         indexTable("index_table"), hasIndex(false) {
         rbfm = &RecordBasedFileManager::instance();
         idx = &IndexManager::instance();
         pfm = &PagedFileManager::instance();
@@ -146,9 +146,13 @@ namespace PeterDB {
 
     RC RelationManager::deleteCatalog() {
 
-        if (rbfm->destroyFile(tableCatalog) != RC::ok || rbfm->destroyFile(columnsCatalog) != RC::ok ||
-            rbfm->destroyFile(indexTable) != RC::ok) {
+        if (rbfm->destroyFile(tableCatalog) != RC::ok || rbfm->destroyFile(columnsCatalog) != RC::ok) {
             return RC::REMV_FILE_FAIL;
+        }
+        if(hasIndex){
+            if(rbfm->destroyFile(indexTable) != RC::ok){
+                return RC::REMV_FILE_FAIL;
+            }
         }
 
         return RC::ok;
@@ -223,22 +227,25 @@ namespace PeterDB {
         if (re != RC::ok) {
             return re;
         }
-        RM_ScanIterator rm_iter;
-        char *tableNameBuf = new char[tableName.length() + sizeof(int)];
-        formRecordValue(tableName.c_str(), tableNameBuf, TypeVarChar, tableName.length());
-        this->scan(this->indexTable, "tableName", EQ_OP, tableNameBuf, {"indexAttr"}, rm_iter);
-        RID tempRid;
-        char *data = new char[PAGE_SIZE];
-        std::vector<std::string> attrs;
-        while (rm_iter.getNextTuple(tempRid, data) == RC::ok) {
-            //ignore null indicator
-            int len = 0;
-            memcpy(&len, data + 1, sizeof(int));
-            std::string indexAttr(data + 5, len);
-            attrs.push_back(indexAttr);
-        }
-        for (const auto &attr: attrs) {
-            this->destroyIndex(tableName, attr);
+
+        if(hasIndex){
+            RM_ScanIterator rm_iter;
+            char *tableNameBuf = new char[tableName.length() + sizeof(int)];
+            formRecordValue(tableName.c_str(), tableNameBuf, TypeVarChar, tableName.length());
+            this->scan(this->indexTable, "tableName", EQ_OP, tableNameBuf, {"indexAttr"}, rm_iter);
+            RID tempRid;
+            char *data = new char[PAGE_SIZE];
+            std::vector<std::string> attrs;
+            while (rm_iter.getNextTuple(tempRid, data) == RC::ok) {
+                //ignore null indicator
+                int len = 0;
+                memcpy(&len, data + 1, sizeof(int));
+                std::string indexAttr(data + 5, len);
+                attrs.push_back(indexAttr);
+            }
+            for (const auto &attr: attrs) {
+                this->destroyIndex(tableName, attr);
+            }
         }
 
         if (rbfm->destroyFile(tableName) != RC::ok) {
