@@ -257,7 +257,7 @@ namespace PeterDB {
     }
 
     RC
-    RelationManager::formData(const std::vector<Attribute> &descriptor, std::vector<const void *> &values,
+    RelationManager::formData(const std::vector<Attribute> &descriptor, std::vector<void *> &values,
                               void *&data) {
 //        data = new char[PAGE_SIZE];
         unsigned dataFieldNum = descriptor.size();

@@ -128,11 +128,11 @@ namespace PeterDB {
 
         RC getOneAttribute(const std::string &tableName, const std::string &attributeName, Attribute &attr);
 
-        RC formData(const std::vector<Attribute> &descriptor, std::vector<const void *> &values, void *&data);
+        RC formData(const std::vector<Attribute> &descriptor, std::vector<void *> &values, void *&data);
 
         RC formVector(const std::vector<Attribute> &descriptor, std::vector<void *> &values, const char *data);
 
-        char *formStr(const std::string &str) {
+        char *formStr(std::string &str) {
             char *record = new char[str.length() + sizeof(int)];
             int len = str.length();
             memcpy(record, &len, sizeof(int));
@@ -153,8 +153,9 @@ namespace PeterDB {
             std::string indexName = tableName + "." + attributeName;
             std::string fileName = tableName + "." + attributeName + ".idx";
 
-            std::vector<const void *> values = {formStr(tableName), formStr(attributeName), formStr(indexName),
-                                                formStr(fileName)};
+            std::vector<void *> values = {formStr(const_cast<std::string &>(tableName)), formStr(
+                    const_cast<std::string &>(attributeName)), formStr(indexName),
+                                          formStr(fileName)};
             //form record data
             void *data = new char[PAGE_SIZE];
             this->formData(attrs, values, data);

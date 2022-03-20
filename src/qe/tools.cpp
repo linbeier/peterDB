@@ -17,13 +17,13 @@ namespace PeterDB {
         return AttrName;
     }
 
-    unsigned Filter::getRecordLen(std::vector<Attribute> &attrs, char *data) {
+    unsigned getRecordLen(std::vector<Attribute> &attrs, char *data) {
         unsigned short fieldNum = attrs.size();
         unsigned short nullByte = attrs.size() / 8 + (attrs.size() % 8 == 0 ? 0 : 1);
         unsigned dataPointer = nullByte;
 
         for (int i = 0; i < attrs.size(); i++) {
-            if (rm.rbfm->checkNull(data, i, 0)) {
+            if (RecordBasedFileManager::checkNull(data, i, 0)) {
                 continue;
             }
             if (attrs[i].type == TypeVarChar) {
@@ -240,6 +240,126 @@ namespace PeterDB {
         delete[]rhsVal;
         if (result)return true;
         return false;
+    }
+
+    RC BNLJoin::insertIntMap(void *key, char *data, unsigned dataLen) {
+        int intkey = *(int *) key;
+        char *record = new char[dataLen];
+        memcpy(record, data, dataLen);
+        intKeyMap[intkey].push_back(record);
+        return RC::ok;
+    }
+
+    RC BNLJoin::insertFloatMap(void *key, char *data, unsigned dataLen) {
+        float floatkey = *(float *) key;
+        char *record = new char[dataLen];
+        memcpy(record, data, dataLen);
+        floatKeyMap[floatkey].push_back(record);
+        return RC::ok;
+    }
+
+    RC BNLJoin::insertStringMap(void *key, char *data, unsigned dataLen) {
+        int len = 0;
+        memcpy(&len, key, sizeof(int));
+        std::string str((char *) key + 4, len);
+        char *record = new char[dataLen];
+        memcpy(record, data, dataLen);
+        stringKeyMap[str].push_back(record);
+        return RC::ok;
+    }
+
+    bool BNLJoin::searchIntMap(void *key) {
+        int intkey = *(int *) key;
+        if (intKeyMap.find(intkey) != intKeyMap.end()) {
+            for (auto records: intKeyMap[intkey]) {
+                left_results.push(records);
+            }
+            return true;
+        }
+        return false;
+    }
+
+    bool BNLJoin::searchFloatMap(void *key) {
+        float floatkey = *(float *) key;
+        if (floatKeyMap.find(floatkey) != floatKeyMap.end()) {
+            for (auto records: floatKeyMap[floatkey]) {
+                left_results.push(records);
+            }
+            return true;
+        }
+        return false;
+    }
+
+    bool BNLJoin::searchStringMap(void *key) {
+        int len = 0;
+        memcpy(&len, key, sizeof(int));
+        std::string str((char *) key + 4, len);
+        if (stringKeyMap.find(str) != stringKeyMap.end()) {
+            for (auto records: stringKeyMap[str]) {
+                left_results.push(records);
+            }
+            return true;
+        }
+        return false;
+    }
+
+    RC BNLJoin::loadMap() {
+        unsigned maxTotalLen = pageLimit * PAGE_SIZE;
+        char recordBuf[PAGE_SIZE];
+        std::vector<Attribute> attrs;
+        left_input->getAttributes(attrs);
+        while (left_input->getNextTuple(recordBuf) == RC::ok) {
+            //deal with record
+            std::vector<void *> vals;
+            rm.formVector(attrs, vals, recordBuf);
+            unsigned recordLen = getRecordLen(attrs, recordBuf);
+
+            int count = 0;
+            for (int i = 0; i < attrs.size(); ++i) {
+                if (attrs[i].name == cond.lhsAttr) {
+                    count = i;
+                    break;
+                }
+            }
+
+            //add to corresponding map
+            if (keyType == TypeInt) {
+                insertIntMap(vals[count], recordBuf, recordLen);
+            } else if (keyType == TypeReal) {
+                insertFloatMap(vals[count], recordBuf, recordLen);
+            } else {
+                insertStringMap(vals[count], recordBuf, recordLen);
+            }
+
+            maxTotalLen -= recordLen;
+            if (maxTotalLen <= 0) {
+                needLoad = false;
+                return RC::ok;
+            }
+        }
+        return RC(-1);
+    }
+
+    RC BNLJoin::combineResult(void *data) {
+        std::vector<Attribute> rightAttrs;
+        right_input->getAttributes(rightAttrs);
+        std::vector<Attribute> leftAttrs;
+        left_input->getAttributes(leftAttrs);
+
+        char *temp = left_results.top();
+        int len = getRecordLen(rightAttrs, temp);
+        std::vector<Attribute> allAttrs;
+        getAttributes(allAttrs);
+        std::vector<void *> left_vals;
+        std::vector<void *> right_vals;
+        rm.formVector(leftAttrs, left_vals, temp);
+        rm.formVector(rightAttrs, right_vals, right_result);
+        for (auto val: right_vals) {
+            left_vals.push_back(val);
+        }
+        rm.formData(allAttrs, left_vals, data);
+        left_results.pop();
+        return RC::ok;
     }
 
     RC attrProjection(void *data, std::vector<Attribute> &attrs, std::vector<Attribute> &projAttrs, char *projData) {

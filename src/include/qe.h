@@ -3,6 +3,8 @@
 
 #include <vector>
 #include <string>
+#include <unordered_map>
+#include <queue>
 
 #include "rm.h"
 #include "ix.h"
@@ -39,7 +41,7 @@ namespace PeterDB {
 
         virtual RC getAttributes(std::vector<Attribute> &attrs) const = 0;
 
-        virtual RC getTableName(std::string &tableName) = 0;
+        virtual RC fetchTableName(std::string &tableName) = 0;
 
         virtual ~Iterator() = default;
     };
@@ -94,7 +96,7 @@ namespace PeterDB {
             }
         };
 
-        RC getTableName(std::string &tableName) override {
+        RC fetchTableName(std::string &tableName) override {
             tableName = this->tableName;
             return RC::ok;
         }
@@ -156,7 +158,7 @@ namespace PeterDB {
             }
         };
 
-        RC getTableName(std::string &tableName) override {
+        RC fetchTableName(std::string &tableName) override {
             tableName = this->tableName;
             return RC::ok;
         }
@@ -198,9 +200,9 @@ namespace PeterDB {
 
         void rhs_extract_data(AttrType type, const char *data, char *&record, unsigned &len);
 
-        unsigned getRecordLen(std::vector<Attribute> &attrs, char *data);
+//        unsigned getRecordLen(std::vector<Attribute> &attrs, char *data);
 
-        RC getTableName(std::string &tableName) override { return (RC) -1; };
+        RC fetchTableName(std::string &tableName) override { return (RC) -1; };
     };
 
     class Project : public Iterator {
@@ -220,11 +222,34 @@ namespace PeterDB {
         // For attribute in std::vector<Attribute>, name it as rel.attr
         RC getAttributes(std::vector<Attribute> &attrs) const override;
 
-        RC getTableName(std::string &tableName) override { return (RC) -1; };
+        RC fetchTableName(std::string &tableName) override { return (RC) -1; };
+
     };
 
     class BNLJoin : public Iterator {
         // Block nested-loop join operator
+        unsigned pageLimit;
+        std::string lhsTableName;
+        std::string lhsAttrName;
+        std::string rhsTableName;
+        std::string rhsAttrName;
+
+        Condition cond;
+        AttrType keyType;
+        bool needLoad;
+        bool cannotLoad;
+
+        std::unordered_map<int, std::vector<char *>> intKeyMap;
+        std::unordered_map<float, std::vector<char *>> floatKeyMap;
+        std::unordered_map<std::string, std::vector<char *>> stringKeyMap;
+
+        std::priority_queue<char *> left_results;
+        char *right_result;
+
+        Iterator *left_input;
+        TableScan *right_input;
+        RelationManager &rm;
+//        IndexManager &idx;
     public:
         BNLJoin(Iterator *leftIn,            // Iterator of input R
                 TableScan *rightIn,           // TableScan Iterator of input S
@@ -240,7 +265,23 @@ namespace PeterDB {
         // For attribute in std::vector<Attribute>, name it as rel.attr
         RC getAttributes(std::vector<Attribute> &attrs) const override;
 
-        RC getTableName(std::string &tableName) override { return (RC) -1; };
+        RC fetchTableName(std::string &tableName) override { return (RC) -1; };
+
+        RC insertIntMap(void *key, char *data, unsigned dataLen);
+
+        RC insertFloatMap(void *key, char *data, unsigned dataLen);
+
+        RC insertStringMap(void *key, char *data, unsigned dataLen);
+
+        bool searchIntMap(void *key);
+
+        bool searchFloatMap(void *key);
+
+        bool searchStringMap(void *key);
+
+        RC loadMap();
+
+        RC combineResult(void *data);
     };
 
     class INLJoin : public Iterator {
@@ -258,7 +299,7 @@ namespace PeterDB {
         // For attribute in std::vector<Attribute>, name it as rel.attr
         RC getAttributes(std::vector<Attribute> &attrs) const override;
 
-        RC getTableName(std::string &tableName) override { return (RC) -1; };
+        RC fetchTableName(std::string &tableName) override { return (RC) -1; };
     };
 
     // 10 extra-credit points
@@ -278,7 +319,7 @@ namespace PeterDB {
         // For attribute in std::vector<Attribute>, name it as rel.attr
         RC getAttributes(std::vector<Attribute> &attrs) const override;
 
-        RC getTableName(std::string &tableName) override { return (RC) -1; };
+        RC fetchTableName(std::string &tableName) override { return (RC) -1; };
     };
 
     class Aggregate : public Iterator {
@@ -308,7 +349,7 @@ namespace PeterDB {
         // output attrName = "MAX(rel.attr)"
         RC getAttributes(std::vector<Attribute> &attrs) const override;
 
-        RC getTableName(std::string &tableName) override { return (RC) -1; };
+        RC fetchTableName(std::string &tableName) override { return (RC) -1; };
     };
 } // namespace PeterDB
 

@@ -37,7 +37,7 @@ namespace PeterDB {
             unsigned dataLen = 0;
             void *oneEntry = new char[PAGE_SIZE];
             std::vector<Attribute> oneAttr = {attrs[count]};
-            std::vector<const void *> oneData = {vals[count]};
+            std::vector<void *> oneData = {vals[count]};
             rm.formData(oneAttr, oneData, oneEntry);
             if (check_condition(oneEntry, dataLen)) {
                 unsigned len = getRecordLen(attrs, recordBuffer);
@@ -56,7 +56,7 @@ namespace PeterDB {
 
     Project::Project(Iterator *input, const std::vector<std::string> &attrNames) : rm(RelationManager::instance()) {
 
-        input->getTableName(tableName);
+        input->fetchTableName(tableName);
         rm.getAttributes(tableName, attrAll);
         this->input = input;
 
@@ -84,7 +84,7 @@ namespace PeterDB {
         }
         rm.formVector(attrAll, vals, recordBuffer);
 
-        std::vector<const void *> dealedVals;
+        std::vector<void *> dealedVals;
         for (int i = 0; i < attrs.size(); ++i) {
             for (int j = 0; j < attrAll.size(); ++j) {
                 if (attrAll[j].name == attrs[i].name) {
@@ -106,20 +106,107 @@ namespace PeterDB {
         return RC::ok;
     }
 
-    BNLJoin::BNLJoin(Iterator *leftIn, TableScan *rightIn, const Condition &condition, const unsigned int numPages) {
+    BNLJoin::BNLJoin(Iterator *leftIn, TableScan *rightIn, const Condition &condition, const unsigned int numPages)
+            : rm(RelationManager::instance()), right_result(nullptr) {
+        pageLimit = numPages;
+        left_input = leftIn;
+        right_input = rightIn;
+        cond = condition;
 
+        keyType = condition.rhsValue.type;
+        needLoad = true;
+        cannotLoad = false;
+
+        lhsTableName = getTableName(cond.lhsAttr);
+        lhsAttrName = getAttrName(cond.lhsAttr);
+        if (cond.bRhsIsAttr) {
+            rhsTableName = getTableName(cond.rhsAttr);
+            rhsAttrName = getAttrName(cond.rhsAttr);
+//            rm.scan(rhsTableName, rhsAttrName, NO_OP, NULL, {rhsAttrName}, rightIter);
+        }
+        if (needLoad) {
+            RC re = loadMap();
+            needLoad = false;
+            if (re != RC::ok) {
+                cannotLoad = true;
+            }
+        }
     }
 
     BNLJoin::~BNLJoin() {
-
+        delete[]right_result;
     }
 
+    //TODO:all attribute should be tableName.Attribute
     RC BNLJoin::getNextTuple(void *data) {
+
+        std::vector<Attribute> rightAttrs;
+        right_input->getAttributes(rightAttrs);
+        std::vector<Attribute> leftAttrs;
+        left_input->getAttributes(leftAttrs);
+
+        if (!left_results.empty()) {
+            combineResult(data);
+            return RC::ok;
+        }
+        lp:
+        char tarBuf[PAGE_SIZE];
+        while (right_input->getNextTuple(tarBuf) == RC::ok) {
+            std::vector<void *> vals;
+            rm.formVector(rightAttrs, vals, tarBuf);
+            unsigned tarLen = getRecordLen(rightAttrs, tarBuf);
+
+            int count = 0;
+            for (int i = 0; i < rightAttrs.size(); ++i) {
+                if (rightAttrs[i].name == cond.rhsAttr) {
+                    count = i;
+                    break;
+                }
+            }
+
+            bool satisfy = false;
+            if (keyType == TypeInt) {
+                satisfy = searchIntMap(vals[count]);
+            } else if (keyType == TypeReal) {
+                satisfy = searchFloatMap(vals[count]);
+            } else {
+                satisfy = searchStringMap(vals[count]);
+            }
+
+            if (satisfy) {
+                delete[]right_result;
+                right_result = new char[tarLen];
+                memcpy(right_result, tarBuf, tarLen);
+                combineResult(data);
+                return RC::ok;
+            }
+        }
+        needLoad = true;
+        if (needLoad && !cannotLoad) {
+            RC re = loadMap();
+            needLoad = false;
+            right_input->setIterator();
+            if (re != RC::ok) {
+                cannotLoad = true;
+            }
+            goto lp;
+        }
         return (RC) -1;
     }
+
 
     RC BNLJoin::getAttributes(std::vector<Attribute> &attrs) const {
-        return (RC) -1;
+        std::vector<Attribute> rightAttrs;
+        right_input->getAttributes(rightAttrs);
+        std::vector<Attribute> leftAttrs;
+        left_input->getAttributes(leftAttrs);
+
+        attrs = leftAttrs;
+
+        for (auto attr: rightAttrs) {
+            attrs.push_back(attr);
+        }
+        return (RC) ok;
     }
 
     INLJoin::INLJoin(Iterator *leftIn, IndexScan *rightIn, const Condition &condition) {
