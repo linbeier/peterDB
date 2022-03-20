@@ -32,10 +32,10 @@ namespace PeterDB {
         IX_ScanIterator *idx;
 
         RM_IndexScanIterator() {
-            idx = nullptr;
+            idx = new IX_ScanIterator;
         };    // Constructor
         ~RM_IndexScanIterator() {
-
+            delete idx;
         };    // Destructor
 
         // "key" follows the same format as in IndexManager::insertEntry()
