@@ -50,6 +50,7 @@ namespace PeterDB {
     // Relation Manager
     class RelationManager {
     public:
+        IXFileHandle fh;
         RecordBasedFileManager *rbfm;
         PagedFileManager *pfm;
 
@@ -210,7 +211,6 @@ namespace PeterDB {
                      bool highKeyInclusive,
                      RM_IndexScanIterator &rm_IndexScanIterator) {
             std::string fileName = tableName + "." + attributeName + ".idx";
-            IXFileHandle fh;
             idx->openFile(fileName, fh);
             Attribute attr;
             getOneAttribute(tableName, attributeName, attr);
