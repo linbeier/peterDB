@@ -58,10 +58,11 @@ namespace PeterDB {
 
         input->getTableName(tableName);
         rm.getAttributes(tableName, attrAll);
+        this->input = input;
 
         for (int i = 0; i < attrAll.size(); i++) {
             for (int j = 0; j < attrNames.size(); j++) {
-                if (attrAll[i].name == attrNames[j]) {
+                if (tableName + "." + attrAll[i].name == attrNames[j]) {
                     attrs.push_back(attrAll[i]);
                     break;
                 }

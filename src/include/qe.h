@@ -39,7 +39,7 @@ namespace PeterDB {
 
         virtual RC getAttributes(std::vector<Attribute> &attrs) const = 0;
 
-        virtual RC getTableName(std::string &tableName) {};
+        virtual RC getTableName(std::string &tableName) = 0;
 
         virtual ~Iterator() = default;
     };
@@ -199,6 +199,8 @@ namespace PeterDB {
         void rhs_extract_data(AttrType type, const char *data, char *&record, unsigned &len);
 
         unsigned getRecordLen(std::vector<Attribute> &attrs, char *data);
+
+        RC getTableName(std::string &tableName) override { return (RC) -1; };
     };
 
     class Project : public Iterator {
@@ -217,6 +219,8 @@ namespace PeterDB {
 
         // For attribute in std::vector<Attribute>, name it as rel.attr
         RC getAttributes(std::vector<Attribute> &attrs) const override;
+
+        RC getTableName(std::string &tableName) override { return (RC) -1; };
     };
 
     class BNLJoin : public Iterator {
@@ -235,6 +239,8 @@ namespace PeterDB {
 
         // For attribute in std::vector<Attribute>, name it as rel.attr
         RC getAttributes(std::vector<Attribute> &attrs) const override;
+
+        RC getTableName(std::string &tableName) override { return (RC) -1; };
     };
 
     class INLJoin : public Iterator {
@@ -251,6 +257,8 @@ namespace PeterDB {
 
         // For attribute in std::vector<Attribute>, name it as rel.attr
         RC getAttributes(std::vector<Attribute> &attrs) const override;
+
+        RC getTableName(std::string &tableName) override { return (RC) -1; };
     };
 
     // 10 extra-credit points
@@ -269,6 +277,8 @@ namespace PeterDB {
 
         // For attribute in std::vector<Attribute>, name it as rel.attr
         RC getAttributes(std::vector<Attribute> &attrs) const override;
+
+        RC getTableName(std::string &tableName) override { return (RC) -1; };
     };
 
     class Aggregate : public Iterator {
@@ -297,6 +307,8 @@ namespace PeterDB {
         // E.g. Relation=rel, attribute=attr, aggregateOp=MAX
         // output attrName = "MAX(rel.attr)"
         RC getAttributes(std::vector<Attribute> &attrs) const override;
+
+        RC getTableName(std::string &tableName) override { return (RC) -1; };
     };
 } // namespace PeterDB
 
