@@ -54,9 +54,9 @@ namespace PeterDB {
         } else if (ixFileHandle.fileHandle.fd != nullptr) {
             return RC::OPEN_FILE_FAIL;
         } else {
-            FILE *fd = fopen(fileName.c_str(), "r+b");
-            readHiddenPage(fd, ixFileHandle.fileHandle);
-            readDummyNode(fd, ixFileHandle.rootPage);
+            ixFileHandle.fileHandle.fd = fopen(fileName.c_str(), "r+b");
+            readHiddenPage(ixFileHandle.fileHandle.fd , ixFileHandle.fileHandle);
+            readDummyNode(ixFileHandle.fileHandle.fd , ixFileHandle.rootPage);
             ixFileHandle.fileName = fileName;
         }
         return RC::ok;
