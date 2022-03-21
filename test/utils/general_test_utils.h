@@ -101,7 +101,7 @@ namespace PeterDBTesting {
 
     static inline std::string to_lower(std::string s) {
         std::transform(s.begin(), s.end(), s.begin(),
-                       [](unsigned char c) { return std::tolower(c); });
+                       [](unsigned char c){ return std::tolower(c); });
         return s;
     }
 
@@ -165,8 +165,9 @@ namespace PeterDBTesting {
             ASSERT_GE(targetMap.size(), expectedMap.size()) << "Fields count should be greater or equal to expected.";
         }
 
-        for (const auto &expectedIter: expectedMap) {
-            auto expectedKey = expectedIter.first;
+        for (const auto & expectedIter : expectedMap)
+        {
+            auto expectedKey =  expectedIter.first;
             auto expectedValue = expectedIter.second;
 
             ASSERT_TRUE((targetMap.contains(expectedKey)))
@@ -252,6 +253,7 @@ namespace PeterDBTesting {
         closedir(dpdf);
         return files;
     }
+
 } // namespace PeterDBTesting
 
 
