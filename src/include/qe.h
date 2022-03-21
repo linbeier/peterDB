@@ -5,6 +5,7 @@
 #include <string>
 #include <unordered_map>
 #include <queue>
+#include "limits"
 
 #include "rm.h"
 #include "ix.h"
@@ -349,6 +350,12 @@ namespace PeterDB {
 
     class Aggregate : public Iterator {
         // Aggregation operator
+        float min, max, count, sum, avg;
+        Iterator *input;
+        Attribute aggAttr;
+        AggregateOp op;
+
+        RelationManager &rm;
     public:
         // Mandatory
         // Basic aggregation

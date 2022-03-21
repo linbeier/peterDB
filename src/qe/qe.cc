@@ -238,7 +238,7 @@ namespace PeterDB {
 
         char right_result[PAGE_SIZE];
 
-        if(hasSetCond){
+        if (hasSetCond) {
             while (right_input->getNextTuple(right_result) == RC::ok) {
                 combineResult(right_result, left_result, data);
                 return RC::ok;
@@ -313,11 +313,19 @@ namespace PeterDB {
         return (RC) -1;
     }
 
-    Aggregate::Aggregate(Iterator *input, const Attribute &aggAttr, AggregateOp op) {
-
+    Aggregate::Aggregate(Iterator *input, const Attribute &aggAttr, AggregateOp op) : rm(RelationManager::instance()) {
+        min = std::numeric_limits<float>::max();
+        max = 0;
+        count = 0;
+        sum = 0;
+        avg = 0;
+        this->input = input;
+        this->aggAttr = aggAttr;
+        this->op = op;
     }
 
-    Aggregate::Aggregate(Iterator *input, const Attribute &aggAttr, const Attribute &groupAttr, AggregateOp op) {
+    Aggregate::Aggregate(Iterator *input, const Attribute &aggAttr, const Attribute &groupAttr, AggregateOp op) : rm(
+            RelationManager::instance()) {
 
     }
 
@@ -326,10 +334,65 @@ namespace PeterDB {
     }
 
     RC Aggregate::getNextTuple(void *data) {
-        return (RC) -1;
+        std::vector<Attribute> attrs;
+        input->getAttributes(attrs);
+        int tar = 0;
+        for (int i = 0; i < attrs.size(); ++i) {
+            if (attrs[i].name == aggAttr.name) {
+                tar = i;
+                break;
+            }
+        }
+
+        char recordBuf[PAGE_SIZE];
+        while (input->getNextTuple(recordBuf) == RC::ok) {
+            std::vector<void *> vals;
+            rm.formVector(attrs, vals, recordBuf);
+            if (aggAttr.type == TypeInt) {
+                int key = *(int *) vals[tar];
+                min = key < min ? key : min;
+                max = key > max ? key : max;
+                sum += key;
+                count++;
+                avg = sum / count;
+            } else {
+                float key = *(float *) vals[tar];
+                min = key < min ? key : min;
+                max = key > max ? key : max;
+                sum += key;
+                count++;
+                avg = sum / count;
+            }
+        }
+
+        char nullInd = '\0';
+        switch (op) {
+            case MIN:
+                memcpy(data, &nullInd, 1);
+                memcpy((char *) data + 1, &min, sizeof(float));
+                break;
+            case MAX:
+                memcpy(data, &nullInd, 1);
+                memcpy((char *) data + 1, &max, sizeof(float));
+                break;
+            case COUNT:
+                memcpy(data, &nullInd, 1);
+                memcpy((char *) data + 1, &count, sizeof(float));
+                break;
+            case SUM:
+                memcpy(data, &nullInd, 1);
+                memcpy((char *) data + 1, &sum, sizeof(float));
+                break;
+            case AVG:
+                memcpy(data, &nullInd, 1);
+                memcpy((char *) data + 1, &avg, sizeof(float));
+                break;
+        }
+        return (RC) ok;
     }
 
     RC Aggregate::getAttributes(std::vector<Attribute> &attrs) const {
-        return (RC) -1;
+        input->getAttributes(attrs);
+        return (RC) ok;
     }
 } // namespace PeterDB
