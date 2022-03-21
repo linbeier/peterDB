@@ -419,6 +419,7 @@ namespace PeterDB {
         attr.name = opName + "(" + aggAttr.name + ")";
         attr.type = TypeReal;
         attr.length = 4;
+        attrs = {attr};
         return RC::ok;
     }
 } // namespace PeterDB
