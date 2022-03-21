@@ -286,6 +286,21 @@ namespace PeterDB {
 
     class INLJoin : public Iterator {
         // Index nested-loop join operator
+        std::string lhsTableName;
+        std::string lhsAttrName;
+        std::string rhsTableName;
+        std::string rhsAttrName;
+
+        Condition cond;
+        AttrType keyType;
+
+        void *right_key;
+        char *left_result;
+
+        Iterator *left_input;
+        IndexScan *right_input;
+        RelationManager &rm;
+        IndexManager &idx;
     public:
         INLJoin(Iterator *leftIn,           // Iterator of input R
                 IndexScan *rightIn,          // IndexScan Iterator of input S
@@ -300,6 +315,15 @@ namespace PeterDB {
         RC getAttributes(std::vector<Attribute> &attrs) const override;
 
         RC fetchTableName(std::string &tableName) override { return (RC) -1; };
+
+        bool checkIntEqual(void *key);
+
+        bool checkFloatEqual(void *key);
+
+        bool checkStringEqual(void *key);
+
+        RC combineResult(char *right_result, char *left_result, void *data);
+
     };
 
     // 10 extra-credit points

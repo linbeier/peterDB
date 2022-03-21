@@ -347,7 +347,7 @@ namespace PeterDB {
         left_input->getAttributes(leftAttrs);
 
         char *temp = left_results.top();
-        int len = getRecordLen(rightAttrs, temp);
+        int len = getRecordLen(leftAttrs, temp);
         std::vector<Attribute> allAttrs;
         getAttributes(allAttrs);
         std::vector<void *> left_vals;
@@ -359,6 +359,57 @@ namespace PeterDB {
         }
         rm.formData(allAttrs, left_vals, data);
         left_results.pop();
+        return RC::ok;
+    }
+
+    bool INLJoin::checkIntEqual(void *key) {
+        int left_key = *(int *) key;
+        int rhs_key = *(int *) right_key;
+        if (left_key == rhs_key) {
+            return true;
+        }
+        return false;
+    }
+
+    bool INLJoin::checkFloatEqual(void *key) {
+        float left_key = *(float *) key;
+        float rhs_key = *(float *) right_key;
+        if (left_key == rhs_key) {
+            return true;
+        }
+        return false;
+    }
+
+    bool INLJoin::checkStringEqual(void *key) {
+        int len = 0;
+        memcpy(&len, key, sizeof(int));
+        std::string left_str((char *) key + 4, len);
+        memcpy(&len, right_key, sizeof(int));
+        std::string right_str((char *) right_key + 4, len);
+        if (left_str == right_str) {
+            return true;
+        }
+        return false;
+    }
+
+    RC INLJoin::combineResult(char *right_result, char *left_result, void *data) {
+        std::vector<Attribute> rightAttrs;
+        right_input->getAttributes(rightAttrs);
+        std::vector<Attribute> leftAttrs;
+        left_input->getAttributes(leftAttrs);
+
+        char *temp = left_result;
+        int len = getRecordLen(leftAttrs, temp);
+        std::vector<Attribute> allAttrs;
+        getAttributes(allAttrs);
+        std::vector<void *> left_vals;
+        std::vector<void *> right_vals;
+        rm.formVector(leftAttrs, left_vals, temp);
+        rm.formVector(rightAttrs, right_vals, right_result);
+        for (auto val: right_vals) {
+            left_vals.push_back(val);
+        }
+        rm.formData(allAttrs, left_vals, data);
         return RC::ok;
     }
 

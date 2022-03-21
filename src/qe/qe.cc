@@ -122,7 +122,6 @@ namespace PeterDB {
         if (cond.bRhsIsAttr) {
             rhsTableName = getTableName(cond.rhsAttr);
             rhsAttrName = getAttrName(cond.rhsAttr);
-//            rm.scan(rhsTableName, rhsAttrName, NO_OP, NULL, {rhsAttrName}, rightIter);
         }
         if (needLoad) {
             RC re = loadMap();
@@ -209,20 +208,89 @@ namespace PeterDB {
         return (RC) ok;
     }
 
-    INLJoin::INLJoin(Iterator *leftIn, IndexScan *rightIn, const Condition &condition) {
+    INLJoin::INLJoin(Iterator *leftIn, IndexScan *rightIn, const Condition &condition) : rm(
+            RelationManager::instance()), idx(IndexManager::instance()) {
+        left_input = leftIn;
+        right_input = rightIn;
+        cond = condition;
 
+        keyType = condition.rhsValue.type;
+        left_result = new char[PAGE_SIZE];
+
+        lhsTableName = getTableName(cond.lhsAttr);
+        lhsAttrName = getAttrName(cond.lhsAttr);
+        if (cond.bRhsIsAttr) {
+            rhsTableName = getTableName(cond.rhsAttr);
+            rhsAttrName = getAttrName(cond.rhsAttr);
+        }
     }
 
     INLJoin::~INLJoin() {
-
+        delete[]left_result;
     }
 
     RC INLJoin::getNextTuple(void *data) {
+        std::vector<Attribute> rightAttrs;
+        right_input->getAttributes(rightAttrs);
+        std::vector<Attribute> leftAttrs;
+        left_input->getAttributes(leftAttrs);
+
+        char right_result[PAGE_SIZE];
+
+        while (right_input->getNextTuple(right_result) == RC::ok) {
+            combineResult(right_result, left_result, data);
+            return RC::ok;
+        }
+
+        while (left_input->getNextTuple(left_result) == RC::ok) {
+            std::vector<void *> vals;
+            rm.formVector(leftAttrs, vals, left_result);
+            unsigned tarLen = getRecordLen(leftAttrs, left_result);
+
+            int count = 0;
+            for (int i = 0; i < leftAttrs.size(); ++i) {
+                if (leftAttrs[i].name == cond.lhsAttr) {
+                    count = i;
+                    break;
+                }
+            }
+
+            right_input->setIterator(vals[count], vals[count], true, true);
+
+            while (right_input->getNextTuple(right_result) == RC::ok) {
+                combineResult(right_result, left_result, data);
+                return RC::ok;
+            }
+//            bool satisfy = false;
+//            if (keyType == TypeInt) {
+//                satisfy = checkIntEqual(vals[count]);
+//            } else if (keyType == TypeReal) {
+//                satisfy = checkFloatEqual(vals[count]);
+//            } else {
+//                satisfy = checkStringEqual(vals[count]);
+//            }
+//
+//            if (satisfy) {
+//
+//            }
+        }
+
+
         return (RC) -1;
     }
 
     RC INLJoin::getAttributes(std::vector<Attribute> &attrs) const {
-        return (RC) -1;
+        std::vector<Attribute> leftAttrs;
+        left_input->getAttributes(leftAttrs);
+        std::vector<Attribute> rightAttrs;
+        right_input->getAttributes(rightAttrs);
+
+        attrs = leftAttrs;
+
+        for (auto attr: rightAttrs) {
+            attrs.push_back(attr);
+        }
+        return (RC) ok;
     }
 
     GHJoin::GHJoin(Iterator *leftIn, Iterator *rightIn, const Condition &condition, const unsigned int numPartitions) {
