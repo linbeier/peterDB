@@ -12,6 +12,7 @@ namespace PeterDB {
         rbfm = &RecordBasedFileManager::instance();
         idx = &IndexManager::instance();
         pfm = &PagedFileManager::instance();
+        fh = IXFileHandle();
     }
 
     RelationManager::~RelationManager() = default;

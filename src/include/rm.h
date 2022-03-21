@@ -174,9 +174,10 @@ namespace PeterDB {
             while (rm_iter.getNextTuple(rid, recordData) == RC::ok) {
                 Attribute attr;
                 getOneAttribute(tableName, attributeName, attr);
-                idx->insertEntry(fh, attr, recordData, rid);
+                idx->insertEntry(fh, attr, recordData + 1, rid);
             }
             idx->closeFile(fh);
+            delete []recordData;
             return RC::ok;
         };
 
@@ -214,6 +215,7 @@ namespace PeterDB {
                      bool highKeyInclusive,
                      RM_IndexScanIterator &rm_IndexScanIterator) {
             std::string fileName = tableName + "." + attributeName + ".idx";
+            idx->closeFile(fh);
             idx->openFile(fileName, fh);
             Attribute attr;
             getOneAttribute(tableName, attributeName, attr);
