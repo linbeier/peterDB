@@ -437,22 +437,22 @@ namespace PeterDB {
             getNodeKeys(ixFileHandle, currentNode, keyVec);
             getNodePages<T>(ixFileHandle, currentNode, ridVec);
 
-            if(keyVec.size() == 1){
+            if (keyVec.size() == 1) {
                 out << "\"" << keyVec[0] << ":[";
                 out << "(" << ridVec[0].pageNum << "," << ridVec[0].slotNum << ")";
                 out << "]\"";
-            }else{
+            } else {
                 bool dup = false;
                 for (int i = 0; i < keyVec.size(); i++) {
-                    if (dup || (i != keyVec.size() - 1 && keyVec[i] == keyVec[i + 1])){
-                        if(!dup){
+                    if (dup || (i != keyVec.size() - 1 && keyVec[i] == keyVec[i + 1])) {
+                        if (!dup) {
                             out << "\"" << keyVec[i] << ":[";
                             dup = true;
                             out << "(" << ridVec[i].pageNum << "," << ridVec[i].slotNum << ")";
-                        }else{
+                        } else {
                             out << ",(" << ridVec[i].pageNum << "," << ridVec[i].slotNum << ")";
                         }
-                    }else{
+                    } else {
                         out << "\"" << keyVec[i] << ":[";
                         out << "(" << ridVec[i].pageNum << "," << ridVec[i].slotNum << ")";
                     }
@@ -461,7 +461,7 @@ namespace PeterDB {
                         out << "]\"";
                         out << ",";
                     }
-                    if(i == keyVec.size() - 1){
+                    if (i == keyVec.size() - 1) {
                         out << "]\"";
                     }
                 }
@@ -526,22 +526,22 @@ namespace PeterDB {
 //                    out << ",";
 //                }
 //            }
-            if(keyVec.size() == 1){
+            if (keyVec.size() == 1) {
                 out << "\"" << keyVec[0] << ":[";
                 out << "(" << ridVec[0].pageNum << "," << ridVec[0].slotNum << ")";
                 out << "]\"";
-            }else{
+            } else {
                 bool dup = false;
                 for (int i = 0; i < keyVec.size(); i++) {
-                    if (dup || (i != keyVec.size() - 1 && keyVec[i] == keyVec[i + 1])){
-                        if(!dup){
+                    if (dup || (i != keyVec.size() - 1 && keyVec[i] == keyVec[i + 1])) {
+                        if (!dup) {
                             out << "\"" << keyVec[i] << ":[";
                             dup = true;
                             out << "(" << ridVec[i].pageNum << "," << ridVec[i].slotNum << ")";
-                        }else{
+                        } else {
                             out << ",(" << ridVec[i].pageNum << "," << ridVec[i].slotNum << ")";
                         }
-                    }else{
+                    } else {
                         out << "\"" << keyVec[i] << ":[";
                         out << "(" << ridVec[i].pageNum << "," << ridVec[i].slotNum << ")";
                     }
@@ -550,7 +550,7 @@ namespace PeterDB {
                         out << "]\"";
                         out << ",";
                     }
-                    if(i == keyVec.size() - 1){
+                    if (i == keyVec.size() - 1) {
                         out << "]\"";
                     }
                 }
@@ -574,7 +574,7 @@ namespace PeterDB {
 
     RC IX_ScanIterator::getNextEntry(RID &rid, void *key) {
         if (closed || noMatchedKey) {
-            return (RC)-1;
+            return (RC) -1;
         }
         if (attribute.type == TypeInt) {
             return getRIDviaIndex<int>(rid, key);
@@ -588,7 +588,7 @@ namespace PeterDB {
 
     RC IX_ScanIterator::close() {
         closed = true;
-
+        IndexManager::closeFile(*ixFileHandle);
         return RC::ok;
     }
 

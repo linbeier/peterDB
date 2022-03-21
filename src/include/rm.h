@@ -169,6 +169,7 @@ namespace PeterDB {
             IXFileHandle fh;
             idx->openFile(fileName, fh);
             RM_ScanIterator rm_iter;
+            rm_iter.iter = new RBFM_ScanIterator();
             scan(tableName, "", NO_OP, NULL, {attributeName}, rm_iter);
             char *recordData = new char[PAGE_SIZE];
             while (rm_iter.getNextTuple(rid, recordData) == RC::ok) {
@@ -177,7 +178,7 @@ namespace PeterDB {
                 idx->insertEntry(fh, attr, recordData + 1, rid);
             }
             idx->closeFile(fh);
-            delete []recordData;
+            delete[]recordData;
             return RC::ok;
         };
 
@@ -194,6 +195,7 @@ namespace PeterDB {
             char *strRecord = new char[strLen + 4];
             formRecordValue(indexName.c_str(), strRecord, TypeVarChar, strLen);
             RM_ScanIterator iter;
+            iter.iter = new RBFM_ScanIterator();
             this->scan(this->indexTable, "indexName", EQ_OP, strRecord, {"indexName"}, iter);
             RID delRid;
             char *tempData = new char[PAGE_SIZE];
@@ -214,8 +216,9 @@ namespace PeterDB {
                      bool lowKeyInclusive,
                      bool highKeyInclusive,
                      RM_IndexScanIterator &rm_IndexScanIterator) {
+            rm_IndexScanIterator.idx = new IX_ScanIterator();
             std::string fileName = tableName + "." + attributeName + ".idx";
-            idx->closeFile(fh);
+//            idx->closeFile(fh);
             idx->openFile(fileName, fh);
             Attribute attr;
             getOneAttribute(tableName, attributeName, attr);
