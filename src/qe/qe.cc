@@ -322,6 +322,7 @@ namespace PeterDB {
         this->input = input;
         this->aggAttr = aggAttr;
         this->op = op;
+        hasCal = false;
     }
 
     Aggregate::Aggregate(Iterator *input, const Attribute &aggAttr, const Attribute &groupAttr, AggregateOp op) : rm(
@@ -334,6 +335,9 @@ namespace PeterDB {
     }
 
     RC Aggregate::getNextTuple(void *data) {
+        if(hasCal){
+            return (RC) -1;
+        }
         std::vector<Attribute> attrs;
         input->getAttributes(attrs);
         int tar = 0;
@@ -388,11 +392,23 @@ namespace PeterDB {
                 memcpy((char *) data + 1, &avg, sizeof(float));
                 break;
         }
+        hasCal = true;
         return (RC) ok;
     }
 
     RC Aggregate::getAttributes(std::vector<Attribute> &attrs) const {
-        input->getAttributes(attrs);
-        return (RC) ok;
+//        std::vector<Attribute> lattrs;
+//        input->getAttributes(lattrs);
+//        int tar = 0;
+//        for (int i = 0; i < lattrs.size(); ++i) {
+//            if (lattrs[i].name == aggAttr.name) {
+//                tar = i;
+//                break;
+//            }
+//        }
+//        attrs = {lattrs[tar]};
+        attrs.name =
+        attrs.type = TypeReal;
+        return RC::ok;
     }
 } // namespace PeterDB

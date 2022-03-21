@@ -355,6 +355,7 @@ namespace PeterDB {
         Attribute aggAttr;
         AggregateOp op;
 
+        bool hasCal;
         RelationManager &rm;
     public:
         // Mandatory
