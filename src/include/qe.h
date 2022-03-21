@@ -293,6 +293,7 @@ namespace PeterDB {
 
         Condition cond;
         AttrType keyType;
+        bool hasSetCond;
 
         void *right_key;
         char *left_result;

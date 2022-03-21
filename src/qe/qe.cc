@@ -214,6 +214,7 @@ namespace PeterDB {
         right_input = rightIn;
         cond = condition;
 
+        hasSetCond = false;
         keyType = condition.rhsValue.type;
         left_result = new char[PAGE_SIZE];
 
@@ -237,9 +238,11 @@ namespace PeterDB {
 
         char right_result[PAGE_SIZE];
 
-        while (right_input->getNextTuple(right_result) == RC::ok) {
-            combineResult(right_result, left_result, data);
-            return RC::ok;
+        if(hasSetCond){
+            while (right_input->getNextTuple(right_result) == RC::ok) {
+                combineResult(right_result, left_result, data);
+                return RC::ok;
+            }
         }
 
         while (left_input->getNextTuple(left_result) == RC::ok) {
@@ -259,6 +262,7 @@ namespace PeterDB {
 
             while (right_input->getNextTuple(right_result) == RC::ok) {
                 combineResult(right_result, left_result, data);
+                hasSetCond = true;
                 return RC::ok;
             }
 //            bool satisfy = false;
