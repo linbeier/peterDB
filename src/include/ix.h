@@ -59,7 +59,7 @@ namespace PeterDB {
         RC openFile(const std::string &fileName, IXFileHandle &ixFileHandle);
 
         // Close an ixFileHandle for an index.
-        static RC closeFile(IXFileHandle &ixFileHandle);
+        RC closeFile(IXFileHandle &ixFileHandle);
 
         // Insert an entry into the given index that is indicated by the given ixFileHandle.
         RC insertEntry(IXFileHandle &ixFileHandle, const Attribute &attribute, const void *key, const RID &rid);
@@ -208,6 +208,7 @@ namespace PeterDB {
     class IX_ScanIterator {
     public:
         bool closed;
+        IndexManager &idx;
 
         IXFileHandle *ixFileHandle;
         Attribute attribute;

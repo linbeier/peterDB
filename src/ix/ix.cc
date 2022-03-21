@@ -563,7 +563,7 @@ namespace PeterDB {
     }
 
     IX_ScanIterator::IX_ScanIterator() : ixFileHandle(nullptr), lowKey(nullptr), highKey(nullptr), closed(false),
-                                         noMatchedKey(false), pageBuffer(nullptr) {
+                                         noMatchedKey(false), pageBuffer(nullptr), idx(IndexManager::instance()) {
     }
 
     IX_ScanIterator::~IX_ScanIterator() {
@@ -588,7 +588,7 @@ namespace PeterDB {
 
     RC IX_ScanIterator::close() {
         closed = true;
-        IndexManager::closeFile(*ixFileHandle);
+        idx.closeFile(*ixFileHandle);
         return RC::ok;
     }
 
