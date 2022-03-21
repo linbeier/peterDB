@@ -335,7 +335,7 @@ namespace PeterDB {
     }
 
     RC Aggregate::getNextTuple(void *data) {
-        if(hasCal){
+        if (hasCal) {
             return (RC) -1;
         }
         std::vector<Attribute> attrs;
@@ -397,18 +397,28 @@ namespace PeterDB {
     }
 
     RC Aggregate::getAttributes(std::vector<Attribute> &attrs) const {
-//        std::vector<Attribute> lattrs;
-//        input->getAttributes(lattrs);
-//        int tar = 0;
-//        for (int i = 0; i < lattrs.size(); ++i) {
-//            if (lattrs[i].name == aggAttr.name) {
-//                tar = i;
-//                break;
-//            }
-//        }
-//        attrs = {lattrs[tar]};
-        attrs.name =
-        attrs.type = TypeReal;
+        Attribute attr;
+        std::string opName;
+        switch (op) {
+            case MIN:
+                opName = "MIN";
+                break;
+            case MAX:
+                opName = "MAX";
+                break;
+            case COUNT:
+                opName = "COUNT";
+                break;
+            case SUM:
+                opName = "SUM";
+                break;
+            case AVG:
+                opName = "AVG";
+                break;
+        }
+        attr.name = opName + "(" + aggAttr.name + ")";
+        attr.type = TypeReal;
+        attr.length = 4;
         return RC::ok;
     }
 } // namespace PeterDB
