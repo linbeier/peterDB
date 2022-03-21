@@ -588,7 +588,7 @@ namespace PeterDB {
 
     RC IX_ScanIterator::close() {
         closed = true;
-        idx.closeFile(*ixFileHandle);
+//        idx.closeFile(*ixFileHandle);
         return RC::ok;
     }
 
